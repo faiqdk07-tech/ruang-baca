@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ruang Baca</title>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -311,6 +312,16 @@ a.btn{text-decoration:none;display:inline-block;color:inherit}a.btn-p{color:var(
 
 .resume{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:18px;box-shadow:inset 0 0 0 1.5px var(--accent);background:var(--accent-soft)}
 .rs-t{display:grid;gap:2px}.rs-t b{font-family:var(--read);font-size:17px;font-weight:500}.rs-t span:last-child{font-size:12.5px;color:var(--muted)}
+
+.stor{margin-top:8px;display:grid;gap:0}
+.stor-r{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 0;border-top:1px solid var(--line)}
+.stor-r div{display:grid;gap:2px}.stor-r b{font-size:14px}.stor-r span{font-size:12.5px;color:var(--muted);max-width:52ch}
+.sw{width:46px;height:28px;border-radius:99px;background:rgba(120,120,128,.25);position:relative;flex:none;transition:background .2s}
+.sw i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:99px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .2s}
+.sw[aria-checked="true"]{background:var(--ok)}.sw[aria-checked="true"] i{left:21px}
+
+.man{display:grid;gap:8px;margin-top:4px;padding:12px;border-radius:14px;background:rgba(120,120,128,.06)}
+.man-h{display:grid;gap:2px}.man-h b{font-size:13px}.man-h span{font-size:12px;color:var(--muted)}
 /* layar vertikal: tetap pakai sidebar di kiri */
 @media (max-width:820px){
   .frame{grid-template-columns:184px minmax(0,1fr)}
@@ -454,7 +465,7 @@ const fmt=s=>String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(
 let tick=null;
 const PAGES=[["beranda","Beranda",I.home],["jadwal","Jadwal",I.cal],["indonesia","Bahasa Indonesia",I.id],["inggris","Bahasa Inggris",I.en],["progres","Progres",I.pr],["tambah","Tambah paket",I.add]];
 
-function navHTML(tb){return PAGES.filter(p=>!((tb||HOSTED)&&p[0]==="tambah")).map(([k,l,ic])=>`<a href="#${k}" aria-current="${S.view==="page"&&S.page===k?"page":"false"}">${ic}<span>${tb&&l.startsWith("Bahasa ")?l.slice(7):l}</span></a>`).join("")}
+function navHTML(tb){return PAGES.filter(p=>!(tb&&p[0]==="tambah")).map(([k,l,ic])=>`<a href="#${k}" aria-current="${S.view==="page"&&S.page===k?"page":"false"}">${ic}<span>${tb&&l.startsWith("Bahasa ")?l.slice(7):l}</span></a>`).join("")}
 function route(){const h=location.hash.replace("#","");if(PAGES.some(p=>p[0]===h)){S.page=h;S.view="page"}render()}
 window.addEventListener("hashchange",route);
 
@@ -486,7 +497,7 @@ function sheetPaket(id){
   const draw=()=>overlay(`<h3>${esc(p.judul_paket)}</h3><p>${p.teks.length} teks · ${p.soal.length} soal</p>
    <ul class="toc">${p.teks.map(t=>`<li><span>${esc(t.judul)}</span><span>${esc(t.slot)}</span></li>`).join("")}</ul>
    <div class="seg" role="group" aria-label="Mode"><button data-m="ujian" aria-pressed="${S.mode==="ujian"}">Ujian</button><button data-m="latihan" aria-pressed="${S.mode==="latihan"}">Latihan</button></div>
-   <div class="row">${p._src!=="contoh"?`<button class="btn btn-g" id="del" style="margin-right:auto;color:var(--no)">Hapus</button>`:""}<button class="btn btn-g" id="exp">Unduh JSON</button><button class="btn btn-g" id="cx">Batal</button>${getSesi()?.pk===id?`<button class="btn btn-g" id="go">Mulai ulang</button><button class="btn btn-p" id="rsm">Lanjutkan</button>`:`<button class="btn btn-p" id="go">Mulai membaca</button>`}</div>`,
+   <div class="row">${p._src==="db"||p._src==="local"?`<button class="btn btn-g" id="del" style="margin-right:auto;color:var(--no)">Hapus</button>`:""}<button class="btn btn-g" id="exp">Unduh JSON</button><button class="btn btn-g" id="cx">Batal</button>${getSesi()?.pk===id?`<button class="btn btn-g" id="go">Mulai ulang</button><button class="btn btn-p" id="rsm">Lanjutkan</button>`:`<button class="btn btn-p" id="go">Mulai membaca</button>`}</div>`,
    ()=>{$$("[data-m]").forEach(b=>b.onclick=()=>{S.mode=b.dataset.m;LS.set("rb-mode",S.mode);draw()});
      $("#exp").onclick=()=>exportPaket(p,$("#exp"));
      const rsm=$("#rsm");if(rsm)rsm.onclick=()=>{closeOv();resumeSesi(getSesi())};
@@ -622,13 +633,13 @@ let DB=null,SAMPLE=null,UID=null,OWNER=false,REMOTE=[],DB_READY=false;
 const localPaket=()=>LS.get("rb-paket",[]);
 function refreshPaket(){
   const seen=new Set(),out=[];
-  [...REMOTE.map(p=>({...p,_src:"db"})),...localPaket().map(p=>({...p,_src:"local"})),...SAMPLES.map(p=>({...p,_src:"contoh"}))].forEach(p=>{if(!seen.has(p.paket_id)){seen.add(p.paket_id);out.push(p)}});
+  [...REMOTE.map(p=>({...p,_src:HOSTED?"repo":"db"})),...localPaket().map(p=>({...p,_src:"local"})),...SAMPLES.map(p=>({...p,_src:"contoh"}))].forEach(p=>{if(!seen.has(p.paket_id)){seen.add(p.paket_id);out.push(p)}});
   PAKET=out;
 }
 async function savePaket(p){
   p.warna=p.warna||COVERS[Math.abs([...p.paket_id].reduce((a,c)=>a*31+c.charCodeAt(0)|0,7))%COVERS.length];
   p.dibuat=p.dibuat||Date.now();
-  if(DB&&OWNER){try{await DB.doc("paket/"+p.paket_id).set(p);return "db"}catch(e){}}
+  if(DB&&OWNER){try{await DB.doc("paket/"+p.paket_id).set(p);return "db"}catch(e){if(e&&e.code==="quota_exceeded")return "penuh"}}
   const L=localPaket().filter(x=>x.paket_id!==p.paket_id);L.push(p);LS.set("rb-paket",L);refreshPaket();return "local";
 }
 async function deletePaket(p){
@@ -652,7 +663,7 @@ async function loadRepo(){
   if(m){try{const list=await getJSON(`https://api.github.com/repos/${m[1]}/${repo||m[1]+".github.io"}/contents/data/paket`);files=list.filter(f=>f.name.endsWith(".json")).map(f=>f.download_url)}catch(e){}}
   if(!files.length){try{files=(await getJSON("data/index.json")).map(n=>"data/paket/"+n)}catch(e){}}
   const got=await Promise.all(files.map(u=>getJSON(u).catch(()=>null)));
-  REMOTE=got.filter(p=>p&&p.paket_id&&Array.isArray(p.soal));refreshPaket();if(S.view==="page")render();
+  REMOTE=got.filter(p=>p&&p.paket_id&&Array.isArray(p.soal));refreshPaket();if(!AUTO_DONE){AUTO_DONE=true;autoClean()}if(S.view==="page")render();
 }
 async function initRuntime(){
   if(!window.claude||!claude.use){HOSTED=true;render();await loadRepo();return}
@@ -661,7 +672,7 @@ async function initRuntime(){
   if(user){try{UID=await user.id()}catch(e){};try{OWNER=!!(await user.isOwner())}catch(e){}}
   if(db){DB=db;
     if(user&&!OWNER){try{OWNER=(await user.can("data.write"))!==false}catch(e){}}
-    db.collection("paket").onSnapshot(s=>{REMOTE=s.docs.map(d=>d.data());DB_READY=true;refreshPaket();if(S.view==="page")render()},()=>{});
+    db.collection("paket").onSnapshot(s=>{REMOTE=s.docs.map(d=>d.data());DB_READY=true;refreshPaket();if(!AUTO_DONE){AUTO_DONE=true;autoClean()}if(S.view==="page")render()},()=>{});
     if(UID){try{const d=await db.doc("data/users/"+UID+"/progres").get();if(d.exists){const H={...d.data().hist,...getHist()};LS.set("rb-hist",H)}}catch(e){}
       try{const d=await db.doc("data/users/"+UID+"/sesi").get();if(d.exists){const o=d.data(),l=getSesi();if(o&&o.pk&&!o.kosong&&(!l||o.t>l.t)){SESI=o;LS.set("rb-sesi",o)}}}catch(e){}}
   }
@@ -762,11 +773,12 @@ function finalize(sub,judul,parts){
 /* ===== HALAMAN TAMBAH PAKET ===== */
 const GEN={running:false,ctl:null,status:{},parts:{},result:null};
 function vAdd(){
-  const d=draft(),slots=SLOTS[d.sub],can=!!SAMPLE;
+  const d=draft(),slots=SLOTS[d.sub],auto=!!SAMPLE,can=auto&&LS.get("rb-addmode","auto")==="auto";
   const st=k=>GEN.status[k]||"";
   main(`<h1 class="h1">Tambah paket</h1>
    <p class="lead">Tempel artikel utuh di slotnya. Slot yang dikosongkan akan dibuatkan teksnya oleh Claude.</p>
-   ${can?"":`<p class="warn">Pembuatan soal hanya berjalan di dalam aplikasi Claude. Di sini kamu tetap bisa mengimpor JSON dari Project di bagian bawah.</p>`}
+   ${can?"":`<p class="warn">Mode chat Claude: setiap slot punya tombol <b>Salin prompt</b>. Tempel prompt itu di chat Claude baru (bukan di dalam Project), lalu tempel jawaban JSON-nya ke kotak di bawah slot. Kalau semua slot sudah terisi, paket langsung jadi.</p>`}
+   ${auto?`<div class="fld" style="max-width:420px;margin-bottom:12px"><span>Cara membuat soal</span><div class="seg" style="margin:0" role="group" aria-label="Cara membuat soal"><button data-am="auto" aria-pressed="${can}">Otomatis di sini</button><button data-am="chat" aria-pressed="${!can}">Salin prompt ke chat</button></div></div>`:""}
    <div class="seg" style="max-width:320px" role="group" aria-label="Subtes"><button data-sub="LBIND" aria-pressed="${d.sub==="LBIND"}">Bahasa Indonesia</button><button data-sub="LBE" aria-pressed="${d.sub==="LBE"}">Bahasa Inggris</button></div>
    <label class="fld"><span>Nama paket</span><input id="judul" value="${esc(d.judul)}" placeholder="mis. Paket 01"></label>
    <div class="slots">${slots.map(sl=>{const v=d.slots[d.sub+sl.id]||{};return `<section class="slot">
@@ -775,12 +787,13 @@ function vAdd(){
      ${sl.paired?`<textarea data-f="t1" data-k="${sl.id}" placeholder="Text 1: tempel artikel, atau kosongkan">${esc(v.t1||"")}</textarea><textarea data-f="t2" data-k="${sl.id}" placeholder="Text 2: tempel artikel kedua, atau kosongkan agar dibuatkan">${esc(v.t2||"")}</textarea>`
        :`<textarea data-f="txt" data-k="${sl.id}" placeholder="${sl.id==="T5"?"Tempel puisi/cerpen, atau kosongkan agar dibuatkan":sl.id==="A"?"Tempel utas forum, atau kosongkan agar dibuatkan":"Tempel artikel utuh di sini, atau kosongkan agar dibuatkan"}">${esc(v.txt||"")}</textarea>`}
      <div class="slot-f"><input data-f="sumber" data-k="${sl.id}" value="${esc(v.sumber||"")}" placeholder="Sumber: media, tautan"><input data-f="topik" data-k="${sl.id}" value="${esc(v.topik||"")}" placeholder="Topik (kalau dibuatkan)"></div>
+     ${can?"":manualHTML(sl)}
    </section>`}).join("")}</div>
-   <div class="row" style="justify-content:flex-start;margin:18px 0 8px">
+   <div class="row" style="justify-content:flex-start;margin:18px 0 8px;${can?"":"display:none"}">
      <button class="btn btn-p" id="gen" ${!can||GEN.running?"disabled":""}>${GEN.running?"Sedang membuat…":"Buat soal"}</button>
      ${GEN.running?`<button class="btn btn-g" id="stop">Hentikan</button>`:""}
    </div>
-   <p class="hint">Setiap slot dibuat terpisah, biasanya 1–3 menit per slot. Pemakaian dihitung dari akun Claude-mu.</p>
+   <p class="hint">${can?"Setiap slot dibuat terpisah, biasanya 1–3 menit per slot. Pemakaian dihitung dari akun Claude-mu.":"Tip: tempel prompt setiap slot di chat Claude yang terpisah supaya jawabannya tidak terpotong."}</p>
    ${GEN.result?previewHTML(GEN.result):""}
    <h2 class="h2" style="margin-top:34px">Impor dari Project</h2>
    <p class="hint" style="margin-top:0">Tempel blok JSON hasil Project literasi.</p>
@@ -788,11 +801,13 @@ function vAdd(){
    <div class="row" style="justify-content:flex-start;margin-top:10px"><button class="btn btn-g" id="impb">Simpan JSON ke rak</button><span id="impm" class="hint"></span></div>`);
   $$("[data-sub]").forEach(b=>b.onclick=()=>{const x=draft();x.sub=b.dataset.sub;setDraft(x);GEN.status={};GEN.result=null;vAdd()});
   $("#judul").oninput=e=>{const x=draft();x.judul=e.target.value;setDraft(x)};
+  $$("[data-am]").forEach(b=>b.onclick=()=>{LS.set("rb-addmode",b.dataset.am);vAdd()});
   $$("[data-f]").forEach(el=>el.oninput=()=>{const x=draft(),key=x.sub+el.dataset.k;x.slots[key]=x.slots[key]||{};x.slots[key][el.dataset.f]=el.value;setDraft(x)});
   const g=$("#gen");if(g)g.onclick=runGen;
   const sp=$("#stop");if(sp)sp.onclick=()=>GEN.ctl?.abort();
-  $("#impb").onclick=async()=>{try{const p=JSON.parse($("#imp").value);if(!p.paket_id||!Array.isArray(p.teks)||!Array.isArray(p.soal))throw 0;const w=await savePaket(p);$("#impm").textContent=w==="db"?"Tersimpan di rak.":"Tersimpan di browser ini.";$("#imp").value=""}catch(e){$("#impm").textContent="JSON tidak valid atau bukan format paket."}};
+  $("#impb").onclick=async()=>{try{const p=JSON.parse($("#imp").value);if(!p.paket_id||!Array.isArray(p.teks)||!Array.isArray(p.soal))throw 0;const w=await savePaket(p);$("#impm").textContent=w==="penuh"?"Penyimpanan penuh. Hapus paket lama di halaman Progres.":w==="db"?"Tersimpan di rak.":"Tersimpan di browser ini.";$("#imp").value=""}catch(e){$("#impm").textContent="JSON tidak valid atau bukan format paket."}};
   bindPreview();
+  if(!can)bindManual();
 }
 function inputFor(sub,sl){
   const v=draft().slots[sub+sl.id]||{};
@@ -831,7 +846,7 @@ function previewHTML(p){
 function bindPreview(){
   const sv=$("#sv");if(!sv)return;
   const clear=()=>{const d=draft();SLOTS[d.sub].forEach(sl=>delete GEN.parts[d.sub+sl.id]);GEN.status={};GEN.result=null};
-  sv.onclick=async()=>{const w=await savePaket(GEN.result);const d=draft();d.slots={};d.judul="";setDraft(d);clear();vAdd();const m=$("#impm");if(m)m.textContent=""; overlay(`<h3>Tersimpan</h3><p>${w==="db"?"Paket sudah ada di rak.":"Paket tersimpan di browser ini."}</p><div class="row"><button class="btn btn-p" id="cx">Oke</button></div>`,()=>$("#cx").onclick=closeOv)};
+  sv.onclick=async()=>{const w=await savePaket(GEN.result);if(w==="penuh"){overlay(`<h3>Penyimpanan penuh</h3><p>Paket belum tersimpan. Hapus paket lama di halaman Progres, lalu tekan Simpan ke rak lagi.</p><div class="row"><button class="btn btn-g" id="cx">Tutup</button><a class="btn btn-p" href="#progres" id="gp">Buka Progres</a></div>`,()=>{$("#cx").onclick=closeOv;$("#gp").onclick=closeOv});return}const d=draft();d.slots={};d.judul="";setDraft(d);clear();vAdd();const m=$("#impm");if(m)m.textContent=""; overlay(`<h3>Tersimpan</h3><p>${w==="db"?"Paket sudah ada di rak.":"Paket tersimpan di browser ini."}</p><div class="row"><button class="btn btn-p" id="cx">Oke</button></div>`,()=>$("#cx").onclick=closeOv)};
   $("#rd").onclick=()=>{const p=GEN.result;PAKET=[p,...PAKET.filter(x=>x.paket_id!==p.paket_id)];Object.assign(S,{pk:p.paket_id,r:0,q:0,ans:{},flag:{},open:{},el:0,tab:null,saved:true,view:"read"});render()};
   $("#dc").onclick=()=>{clear();vAdd()};
   $("#exp2").onclick=()=>exportPaket(GEN.result,$("#exp2"));
@@ -1052,6 +1067,57 @@ function resumeHTML(){
 {const _r=vRead,_q=vQuiz;vRead=function(){_r();saveSesi()};vQuiz=function(){_q();saveSesi()}}
 document.addEventListener("visibilitychange",()=>{if(document.hidden&&(S.view==="read"||S.view==="quiz")){if(S.view==="quiz")keep();saveSesi()}});
 window.addEventListener("pagehide",()=>{if(S.view==="quiz")keep();saveSesi()});
+
+/* ===== MODE CHAT CLAUDE (salin prompt, tempel jawaban) ===== */
+GEN.inputs={};
+function manualHTML(sl){
+  const d=draft(),ok=!!GEN.parts[d.sub+sl.id];
+  return `<div class="man"><div class="man-h"><b>Lewat chat Claude</b><span>Salin prompt → tempel di chat Claude → tempel jawabannya di sini</span></div>
+   <div class="row" style="justify-content:flex-start;align-items:center"><button class="btn btn-p" data-cp="${sl.id}">Salin prompt ${sl.id}</button>${ok?`<span class="hint" style="margin:0;color:var(--ok)">Jawaban ${sl.id} sudah masuk.</span>`:""}</div>
+   ${ok?"":`<textarea class="imp" data-ans="${sl.id}" placeholder="Tempel jawaban JSON dari Claude untuk slot ${sl.id}"></textarea><span class="hint" data-msg="${sl.id}" style="margin:0"></span>`}</div>`;
+}
+function parseLoose(t){t=String(t).trim();const f=t.match(/```(?:json)?\s*([\s\S]*?)```/);if(f)t=f[1].trim();else{const a=t.indexOf("{"),b=t.lastIndexOf("}");if(a>=0&&b>a)t=t.slice(a,b+1)}return JSON.parse(t)}
+function bindManual(){
+  const d=draft(),sub=d.sub,slots=SLOTS[sub];
+  $$("[data-cp]").forEach(b=>b.onclick=async()=>{
+    const sl=slots.find(x=>x.id===b.dataset.cp),input=inputFor(sub,sl);GEN.inputs[sub+sl.id]=input;
+    const prompt=buildPrompt(sub,sl,input),o=b.textContent;
+    try{await navigator.clipboard.writeText(prompt);b.textContent="Prompt tersalin";setTimeout(()=>b.textContent=o,1800)}
+    catch(e){overlay(`<h3>Prompt ${esc(sl.id)}</h3><p>Salin semua isi kotak ini, lalu tempel di chat Claude.</p><textarea class="imp" id="pt" style="min-height:240px" readonly>${esc(prompt)}</textarea><div class="row" style="margin-top:10px"><button class="btn btn-p" id="cx">Tutup</button></div>`,()=>{const t=$("#pt");t.focus();t.select();$("#cx").onclick=closeOv})}
+  });
+  $$("[data-ans]").forEach(ta=>{let tm=null;ta.oninput=()=>{clearTimeout(tm);tm=setTimeout(()=>{
+    const id=ta.dataset.ans,sl=slots.find(x=>x.id===id),msg=$(`[data-msg="${id}"]`);
+    if(!ta.value.trim()){msg.textContent="";return}
+    let r;try{r=parseLoose(ta.value)}catch(e){msg.textContent="Belum terbaca sebagai JSON. Pastikan seluruh jawaban Claude ikut tersalin.";msg.style.color="var(--no)";return}
+    const input=GEN.inputs[sub+id]||inputFor(sub,sl),part=assembleSlot(sub,sl,input,r),bad=validSlot(sl,part);
+    if(bad){msg.textContent="Jawaban belum lengkap: "+bad+". Minta Claude melengkapinya, lalu tempel ulang.";msg.style.color="var(--no)";return}
+    GEN.parts[sub+id]=part;GEN.status[id]="ok selesai";
+    if(slots.every(x=>GEN.parts[sub+x.id])){GEN.result=finalize(sub,d.judul,slots.map(x=>GEN.parts[sub+x.id]));GEN.result.tanggal=d.tanggal||ymd(new Date())}
+    vAdd();
+  },350)}});
+}
+
+/* ===== PENYIMPANAN: hapus paket lama ===== */
+let AUTO_DONE=false;
+const todayKey=()=>ymd(new Date());
+const paketTgl=p=>p.tanggal||(p.dibuat?ymd(new Date(p.dibuat)):"");
+const savedPaket=()=>PAKET.filter(p=>p._src==="db"||p._src==="local");
+const oldDone=()=>{const H=getHist(),t=todayKey();return savedPaket().filter(p=>H[p.paket_id]&&paketTgl(p)<t)};
+const kb=n=>n<1024?n+" B":n<1048576?(n/1024).toFixed(0)+" KB":(n/1048576).toFixed(1)+" MB";
+async function cleanOld(){const L=oldDone();for(const p of L){await deletePaket(p)}refreshPaket();return L.length}
+async function autoClean(){if(!LS.get("rb-auto",false))return;const n=await cleanOld();if(n&&S.view==="page")render()}
+function storageHTML(){
+  const all=savedPaket(),old=oldDone(),size=all.reduce((a,p)=>a+JSON.stringify(p).length,0),auto=LS.get("rb-auto",false);
+  return `<section class="stor"><h2 class="h2">Penyimpanan</h2>
+   <p class="hint" style="margin-top:0">${all.length} paket tersimpan · sekitar ${kb(size)}. Menghapus paket tidak menghapus skor dan riwayatnya di halaman ini.</p>
+   <div class="stor-r"><div><b>Paket lama yang sudah selesai</b><span>${old.length?`${old.length} paket dari hari sebelumnya`:"Tidak ada"}</span></div><button class="btn btn-g" id="cl" ${old.length?"":"disabled"} style="color:var(--no)">Hapus paket lama</button></div>
+   <div class="stor-r"><div><b>Hapus otomatis setiap hari</b><span>Saat hari berganti, paket dari hari sebelumnya yang sudah selesai dihapus sendiri. Paket yang belum dikerjakan tetap disimpan.</span></div><button class="sw" id="au" role="switch" aria-checked="${auto}"><i></i></button></div>
+  </section>`;
+}
+{const _p=vProg;vProg=function(){_p();$("#main").insertAdjacentHTML("beforeend",storageHTML());
+  const cl=$("#cl");if(cl)cl.onclick=()=>{const n=oldDone().length;overlay(`<h3>Hapus ${n} paket lama?</h3><p>Artikel dan soalnya akan hilang dari rak. Skor dan riwayatnya tetap ada di Progres. Kalau mau menyimpan cadangan, unduh JSON-nya dulu dari rak.</p><div class="row"><button class="btn btn-g" id="cx">Batal</button><button class="btn btn-p" id="yes" style="background:var(--no)">Hapus</button></div>`,()=>{$("#cx").onclick=closeOv;$("#yes").onclick=async()=>{$("#yes").disabled=true;await cleanOld();closeOv();vProg()}})};
+  $("#au").onclick=()=>{LS.set("rb-auto",!LS.get("rb-auto",false));vProg();if(LS.get("rb-auto",false))autoClean()};
+}}
 
 /* ===== TEMA ===== */
 const THEMES={light:["Terang",'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>'],dark:["Gelap",'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></svg>'],auto:["Ikuti perangkat",'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor"/></svg>']};
