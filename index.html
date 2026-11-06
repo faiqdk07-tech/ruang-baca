@@ -149,6 +149,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-r
 .qz{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:40px;min-height:0;overflow:hidden}
 .qz .left{overflow:auto;min-height:0;padding:0 6px 0 0;position:relative}
 .qz .left .prose{font-size:var(--fsq);line-height:1.62}.qz .left .para{margin-bottom:.75em}
+.sheet{max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);overflow-y:auto;overscroll-behavior:contain}
 .ttabs{display:flex;align-items:center;gap:6px;margin-bottom:14px;white-space:nowrap;overflow-x:auto;scrollbar-width:none}.ttabs::-webkit-scrollbar{display:none}
 .ttabs .lb{font-size:12px;font-weight:700;color:var(--muted);margin-right:4px}
 .ttabs button{width:30px;height:30px;flex:none;border-radius:9px;font-size:13px;font-weight:600;color:var(--muted);background:rgba(120,120,128,.1);font-variant-numeric:tabular-nums}
@@ -533,16 +534,50 @@ function vShelf(sub){
 }
 function overlay(h,bind){$("#ov").innerHTML=`<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true">${h}</div></div>`;$("#scrim").onclick=e=>{if(e.target.id==="scrim")closeOv()};bind&&bind()}
 function closeOv(){$("#ov").innerHTML=""}
+function sheetEdit(p){
+  const clean=JSON.parse(JSON.stringify(p));delete clean._src;
+  const raw=JSON.stringify(clean,null,2);
+  overlay(`<h3>Edit paket</h3><p>Ubah nama, subtes, atau tanggal. Kalau isi paketnya salah, ganti JSON di bawah.</p>
+   <label class="fld" style="max-width:none"><span>Nama paket</span><input id="e-j" value="${esc(p.judul_paket||"")}"></label>
+   <div class="fld" style="max-width:none"><span>Subtes</span><div class="seg" style="margin:0" role="group" aria-label="Subtes"><button data-es="LBIND" aria-pressed="${p.subtes==="LBIND"}">Bahasa Indonesia</button><button data-es="LBE" aria-pressed="${p.subtes==="LBE"}">Bahasa Inggris</button></div></div>
+   <label class="fld" style="max-width:none"><span>Tanggal di jadwal</span><input id="e-t" type="date" value="${esc(p.tanggal||"")}"></label>
+   <details class="ck"><summary>Ganti JSON paket</summary>
+     <p class="hint" style="margin:8px 0">Hapus semua isi kotak, lalu tempel JSON yang benar. Nama, subtes, dan tanggal di atas tetap dipakai.</p>
+     <textarea id="e-x" class="imp" style="min-height:180px;width:100%;box-sizing:border-box">${esc(raw)}</textarea></details>
+   <p id="e-m" class="hint" style="color:var(--no);min-height:1em;margin:8px 0 0"></p>
+   <div class="row"><button class="btn btn-g" id="e-c">Batal</button><button class="btn btn-p" id="e-s">Simpan</button></div>`,
+  ()=>{let sub=p.subtes;
+    $$("[data-es]").forEach(b=>b.onclick=()=>{sub=b.dataset.es;$$("[data-es]").forEach(x=>x.setAttribute("aria-pressed",x.dataset.es===sub))});
+    $("#e-c").onclick=()=>sheetPaket(p.paket_id);
+    $("#e-s").onclick=async()=>{
+      let np;const tx=$("#e-x").value.trim();
+      if(tx===raw.trim())np=JSON.parse(raw);
+      else{try{np=parseLoose(tx)}catch(e){$("#e-m").textContent="JSON tidak valid. Periksa lagi tanda kurung dan koma.";return}
+        if(!Array.isArray(np.teks)||!Array.isArray(np.soal)||!np.teks.length||!np.soal.length){$("#e-m").textContent="JSON harus berisi daftar teks dan soal.";return}}
+      const nm=$("#e-j").value.trim();if(!nm){$("#e-m").textContent="Nama paket belum diisi.";return}
+      np.paket_id=np.paket_id||p.paket_id;np.judul_paket=nm;np.subtes=sub;
+      const tg=$("#e-t").value;if(tg)np.tanggal=tg;else delete np.tanggal;
+      if(!np.warna)np.warna=p.warna;if(!np.dibuat)np.dibuat=p.dibuat;
+      const old=p.paket_id,src=p._src;
+      if(np.paket_id!==old){await deletePaket(p);REMOTE=REMOTE.filter(x=>x.paket_id!==old);refreshPaket()}
+      const w=await savePaket(np);
+      if(w==="penuh"){$("#e-m").textContent="Penyimpanan penuh. Hapus paket lama dulu.";return}
+      if(w==="db"&&src==="db"){const i=REMOTE.findIndex(x=>x.paket_id===old);const c=JSON.parse(JSON.stringify(np));if(i>=0)REMOTE[i]=c;else REMOTE.push(c);refreshPaket()}
+      const ss=getSesi();if(ss&&ss.pk===old&&tx!==raw.trim())clearSesi();
+      S.pk=np.paket_id;render();sheetPaket(np.paket_id);
+    }})
+}
 function sheetPaket(id){
   const p=PAKET.find(x=>x.paket_id===id);
   const draw=()=>overlay(`<h3>${esc(p.judul_paket)}</h3><p>${p.teks.length} teks · ${p.soal.length} soal</p>
    <ul class="toc">${p.teks.map(t=>`<li><span>${esc(t.judul)}</span><span>${esc(t.slot)}</span></li>`).join("")}</ul>
    <div class="seg" role="group" aria-label="Mode"><button data-m="ujian" aria-pressed="${S.mode==="ujian"}">Ujian</button><button data-m="latihan" aria-pressed="${S.mode==="latihan"}">Latihan</button></div>
    <div class="sh-act">${getSesi()?.pk===id?`<button class="btn btn-p" id="rsm">Lanjutkan</button><button class="btn btn-g" id="go">Mulai ulang</button>`:`<button class="btn btn-p" id="go">Mulai membaca</button>`}</div>
-   <div class="sh-sub"><button id="exp">Unduh JSON</button>${p._src==="db"||p._src==="local"?`<button id="del" class="red">Hapus paket</button>`:""}<button id="cx">Tutup</button></div>`,
+   <div class="sh-sub"><button id="exp">Unduh JSON</button>${p._src==="db"||p._src==="local"?`<button id="ed">Edit paket</button><button id="del" class="red">Hapus paket</button>`:""}<button id="cx">Tutup</button></div>`,
    ()=>{$$("[data-m]").forEach(b=>b.onclick=()=>{S.mode=b.dataset.m;LS.set("rb-mode",S.mode);draw()});
      $("#exp").onclick=()=>exportPaket(p,$("#exp"));
      const rsm=$("#rsm");if(rsm)rsm.onclick=()=>{closeOv();resumeSesi(getSesi())};
+     const ed=$("#ed");if(ed)ed.onclick=()=>sheetEdit(p);
      const dl=$("#del");if(dl)dl.onclick=()=>overlay(`<h3>Hapus paket ini?</h3><p>${esc(p.judul_paket)} akan hilang dari rak.</p><div class="row"><button class="btn btn-g" id="cx">Batal</button><button class="btn btn-p" id="yes" style="background:var(--no)">Hapus</button></div>`,()=>{$("#cx").onclick=closeOv;$("#yes").onclick=async()=>{await deletePaket(p);closeOv();render()}});
      $("#cx").onclick=closeOv;$("#go").onclick=()=>{closeOv();clearSesi();Object.assign(S,{pk:id,r:0,q:0,ans:{},flag:{},open:{},el:0,tab:null,p:"soal",saved:false,view:"read"});render()}});
   draw();
