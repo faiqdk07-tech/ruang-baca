@@ -149,7 +149,16 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-r
 .qz{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:40px;min-height:0;overflow:hidden}
 .qz .left{overflow:auto;min-height:0;padding:0 6px 0 0;position:relative}
 .qz .left .prose{font-size:var(--fsq);line-height:1.62}.qz .left .para{margin-bottom:.75em}
-.fsz{margin-left:auto;display:flex;gap:4px}.fsz button{font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:rgba(120,120,128,.1)}
+.ttabs{display:flex;align-items:center;gap:6px;margin-bottom:14px;white-space:nowrap;overflow-x:auto;scrollbar-width:none}.ttabs::-webkit-scrollbar{display:none}
+.ttabs .lb{font-size:12px;font-weight:700;color:var(--muted);margin-right:4px}
+.ttabs button{width:30px;height:30px;flex:none;border-radius:9px;font-size:13px;font-weight:600;color:var(--muted);background:rgba(120,120,128,.1);font-variant-numeric:tabular-nums}
+.ttabs button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.qtime{font-family:var(--ui);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+html.just .prose .para,html.just .prose p{text-align:justify;-webkit-hyphens:auto;hyphens:auto;text-wrap:pretty}
+.seg2{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:12px;background:rgba(120,120,128,.1);margin-top:14px}
+.seg2 button{padding:9px 6px;border-radius:9px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg2 button[aria-pressed="true"]{background:var(--paper);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.seg2 svg{width:16px;height:16px;vertical-align:-3px;margin-right:6px}
 .qz .right{overflow:auto;min-height:0;padding-right:6px}
 .tabs{display:flex;gap:6px;margin-bottom:14px}
 .tabs button{font-size:12px;padding:4px 10px;border-radius:999px;color:var(--muted);background:rgba(120,120,128,.1)}
@@ -489,7 +498,7 @@ const LABELS={"ID-01":"Informasi tersurat","ID-02":"Makna kata & ungkapan","ID-0
 /* ===== STATE ===== */
 const LS={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const S={page:"beranda",view:"page",pk:null,r:0,q:0,ans:{},flag:{},tab:null,p:"soal",mode:LS.get("rb-mode","ujian"),t0:0,el:0,open:{},saved:false};
-const fs=LS.get("rb-fs",null);if(fs)document.documentElement.style.setProperty("--fs",fs+"px");
+document.documentElement.classList.toggle("just",LS.get("rb-just",true));const fs=LS.get("rb-fs",null);if(fs)document.documentElement.style.setProperty("--fs",fs+"px");
 const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const pk=()=>PAKET.find(p=>p.paket_id===S.pk);
@@ -567,7 +576,7 @@ function teks(t,o={}){
 /* ===== BACA (Kindle) ===== */
 function vRead(){
   const p=pk(),t=p.teks[S.r],last=S.r===p.teks.length-1,fc=LS.get("rb-focus",false);
-  main(`<div class="rd${fc?" focus":""}">
+  main(`<div class="rd${fc?" focus":""}" lang="${p.subtes==="LBING"?"en":"id"}">
     <div class="rd-top"><button class="circ" id="bk" aria-label="Kembali">${I.back}</button>
       <div class="crumb"><span>${esc(p.judul_paket)}</span><i>\\</i><b>${esc(t.judul)}</b></div>
       <div class="pg"><button class="mb${fc?" on":""}" id="fm" aria-pressed="${fc}">${I.id}<span>${fc?"Keluar mode baca":"Mode baca"}</span></button><button class="ibtn" id="aa" aria-label="Ukuran teks">${I.aa}</button>${S.r+1} / ${p.teks.length}</div></div>
@@ -577,7 +586,7 @@ function vRead(){
       <button class="btn btn-p" id="nx">${last?"Mulai soal":"Teks berikutnya"}</button>
     </div></div>`);
   $("#bk").onclick=()=>{S.view="page";render()};
-  $("#aa").onclick=sheetSize;
+  $("#aa").onclick=()=>sheetSize("fs");
   $("#fm").onclick=()=>{LS.set("rb-focus",!fc);vRead()};
   const pv=$("#pvr");if(pv)pv.onclick=()=>{if(S.r>0){S.r--;vRead()}};
   $$("[data-r]").forEach(b=>b.onclick=()=>{S.r=+b.dataset.r;vRead()});
@@ -588,13 +597,13 @@ function vRead(){
 function vQuiz(){
   const p=pk(),s=p.soal[S.q],n=p.soal.length,t=p.teks.find(x=>x.id===(S.tab||s.teks_id));
   const a=S.ans[s.no],show=S.mode==="latihan"&&!!a;
-  main(`<div class="rd">
+  main(`<div class="rd" lang="${p.subtes==="LBING"?"en":"id"}">
     <div class="rd-top"><button class="circ" id="bk" aria-label="Keluar">${I.back}</button>
-      <div class="crumb"><span>${esc(p.judul_paket)}</span><i>\\</i><b>Soal ${S.q+1}</b></div>
-      <div class="pg"><span style="font-family:var(--ui);font-size:13px;color:var(--muted)" id="clk">${fmt(S.el+Math.floor((Date.now()-S.t0)/1000))}</span>${S.q+1} / ${n}</div></div>
+      <div class="crumb"><b>Soal ${S.q+1} <small style="font-family:var(--ui);font-size:13px;color:var(--muted)">dari ${n}</small></b></div>
+      <div class="pg"><span class="qtime" id="clk">${fmt(S.el+Math.floor((Date.now()-S.t0)/1000))}</span><button class="ibtn" id="aa" aria-label="Tampilan teks">${I.aa}</button></div></div>
     <div class="qz" data-p="${S.p}">
       <section class="left" id="left">
-        <div class="tabs">${p.teks.map((x,i)=>`<button data-tab="${x.id}" aria-pressed="${x.id===t.id}">Teks ${i+1}</button>`).join("")}<span class="fsz"><button id="fqm" aria-label="Perkecil huruf teks">A−</button><button id="fqp" aria-label="Perbesar huruf teks">A+</button></span></div>
+        <div class="ttabs"><span class="lb">Teks</span>${p.teks.map((x,i)=>`<button data-tab="${x.id}" aria-pressed="${x.id===t.id}" aria-label="Teks ${i+1}">${i+1}</button>`).join("")}</div>
         <h2 class="ttl">${esc(t.judul)}</h2>
         ${teks(t,{hl:show&&t.id===s.teks_id?s.bukti:null,blank:s.format==="blank"?s.no:null})}
       </section>
@@ -614,8 +623,7 @@ function vQuiz(){
     </div></div>`);
   const re=()=>{keep();vQuiz()};
   $("#bk").onclick=()=>{S.view="page";render()};
-  const fsq=d=>{const v=Math.min(20,Math.max(12,(LS.get("rb-fsq",15))+d));LS.set("rb-fsq",v);document.documentElement.style.setProperty("--fsq",v+"px")};
-  $("#fqm").onclick=()=>fsq(-1);$("#fqp").onclick=()=>fsq(1);
+  $("#aa").onclick=()=>sheetSize("fsq");
   $$("[data-tab]").forEach(b=>b.onclick=()=>{const i=p.soal.findIndex(q=>q.teks_id===b.dataset.tab);if(i>=0){S.q=i;S.tab=null}else S.tab=b.dataset.tab;re();const L=$("#left");if(L)L.scrollTop=0});
   $$(".opt:not([disabled])").forEach(b=>b.onclick=()=>{S.ans[s.no]=b.dataset.k;S.tab=null;re()});
   $$("[data-i]").forEach(b=>b.onclick=()=>{S.q=+b.dataset.i;S.tab=null;re()});
@@ -630,9 +638,13 @@ function note(s,a){const ok=a===s.kunci;return `<div class="note"><b class="v ${
 function finish(){const p=pk(),k=p.soal.filter(s=>!S.ans[s.no]).length,r=p.soal.filter(s=>S.flag[s.no]).length;
   overlay(`<h3>Kumpulkan jawaban?</h3><p>${k?`${k} soal belum dijawab.`:"Semua soal sudah dijawab."}${r?` ${r} ditandai ragu-ragu.`:""}</p><div class="row"><button class="btn btn-g" id="cx">Periksa lagi</button><button class="btn btn-p" id="ok">Kumpulkan</button></div>`,
   ()=>{$("#cx").onclick=closeOv;$("#ok").onclick=()=>{keep();closeOv();S.view="result";render()}})}
-function sheetSize(){const cur=()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--fs"))||17;
-  overlay(`<h3>Ukuran teks</h3><p class="quote" style="font-size:var(--fs);color:var(--ink)">Kota ini tak pernah benar-benar tidur.</p><div class="row" style="justify-content:space-between;align-items:center"><button class="btn btn-g" id="dn">A−</button><span id="fv">${cur()} px</span><button class="btn btn-g" id="up">A+</button></div>`,
-  ()=>{const set=d=>{const v=Math.min(24,Math.max(14,cur()+d));document.documentElement.style.setProperty("--fs",v+"px");LS.set("rb-fs",v);$("#fv").textContent=v+" px"};$("#dn").onclick=()=>set(-1);$("#up").onclick=()=>set(1)})}
+function sheetSize(vr){vr=vr||"fs";const q=vr==="fsq",key=q?"rb-fsq":"rb-fs",lo=q?12:14,hi=q?20:24,df=q?15:17;
+  const cur=()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--"+vr))||df;
+  const jL='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 3.5h12M2 6.5h8M2 9.5h12M2 12.5h7"/></svg>',jJ='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 3.5h12M2 6.5h12M2 9.5h12M2 12.5h7"/></svg>';
+  const J=()=>document.documentElement.classList.contains("just");
+  overlay(`<h3>Tampilan teks</h3><p class="quote prose" style="font-size:var(--${vr});color:var(--ink)"><span class="para" style="display:block;margin:0">Kota ini tak pernah benar-benar tidur. Lampu jalan menyala sampai pagi, dan suara kendaraan terus terdengar dari kejauhan.</span></p><div class="row" style="justify-content:space-between;align-items:center"><button class="btn btn-g" id="dn">A−</button><span id="fv">${cur()} px</span><button class="btn btn-g" id="up">A+</button></div><div class="seg2"><button id="jl" aria-pressed="${!J()}">${jL}Rata kiri</button><button id="jj" aria-pressed="${J()}">${jJ}Rata kiri-kanan</button></div>`,
+  ()=>{const set=d=>{const v=Math.min(hi,Math.max(lo,cur()+d));document.documentElement.style.setProperty("--"+vr,v+"px");LS.set(key,v);$("#fv").textContent=v+" px"};$("#dn").onclick=()=>set(-1);$("#up").onclick=()=>set(1);
+   const sj=v=>{LS.set("rb-just",v);document.documentElement.classList.toggle("just",v);$("#jl").setAttribute("aria-pressed",!v);$("#jj").setAttribute("aria-pressed",v)};$("#jl").onclick=()=>sj(false);$("#jj").onclick=()=>sj(true)})}
 
 /* ===== HASIL ===== */
 function vResult(){
