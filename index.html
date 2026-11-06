@@ -1,0 +1,1058 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Ruang Baca</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400&display=swap">
+<style>
+/* Layout: bingkai seukuran iPad landscape; sidebar kaca (HP: tab bar bawah). Halaman baca = kertas polos dua kolom ala Kindle, deretan halaman mini di bawah */
+:root{
+  --bg:#FFFFFF; --paper:#FFFFFF; --ink:#2A2A2C; --muted:#8A8A8F; --line:rgba(0,0,0,.08);
+  --glass:rgba(255,255,255,.55); --glass-2:rgba(255,255,255,.78); --glass-line:rgba(255,255,255,.7);
+  --accent:#C9822B; --accent-soft:rgba(201,130,43,.12); --ok:#34A853; --ok-soft:rgba(52,168,83,.12); --no:#D9483B; --no-soft:rgba(217,72,59,.1);
+  --mark:rgba(255,214,102,.45); --thumb:#C9C9CC;
+  --ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --read:"Literata","Iowan Old Style",Georgia,serif;
+  --fs:17px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#101012; --paper:#1C1C1E; --ink:#E6E4DF; --muted:#8E8E93; --line:rgba(255,255,255,.08);
+  --glass:rgba(44,44,48,.55); --glass-2:rgba(58,58,62,.75); --glass-line:rgba(255,255,255,.1);
+  --accent:#E0A050; --accent-soft:rgba(224,160,80,.16); --ok:#4CC172; --ok-soft:rgba(76,193,114,.14); --no:#F07065; --no-soft:rgba(240,112,101,.14);
+  --mark:rgba(224,170,60,.28); --thumb:#3A3A3E; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#101012; --paper:#1C1C1E; --ink:#E6E4DF; --muted:#8E8E93; --line:rgba(255,255,255,.08);
+  --glass:rgba(44,44,48,.55); --glass-2:rgba(58,58,62,.75); --glass-line:rgba(255,255,255,.1);
+  --accent:#E0A050; --accent-soft:rgba(224,160,80,.16); --ok:#4CC172; --ok-soft:rgba(76,193,114,.14); --no:#F07065; --no-soft:rgba(240,112,101,.14);
+  --mark:rgba(224,170,60,.28); --thumb:#3A3A3E; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+
+/* frame (iPad) */
+.frame{max-width:1180px;height:min(820px,calc(100vh - 48px));min-height:560px;margin:0 auto;background:var(--paper);border-radius:28px;box-shadow:0 30px 60px rgba(0,0,0,.14),0 0 0 1px var(--line);position:relative;overflow:hidden;display:grid;grid-template-columns:224px minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+#ov{display:contents}
+.frame::before{content:none}
+.frame.full{grid-template-columns:minmax(0,1fr)}
+.frame.full .side{display:none}
+
+/* glass sidebar */
+.side{position:relative;margin:16px 0 16px 16px;border-radius:20px;background:var(--glass);backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);box-shadow:inset 0 0 0 1px var(--glass-line),0 8px 24px rgba(0,0,0,.05);display:flex;flex-direction:column;padding:18px 12px}
+.hello{padding:4px 8px 22px}
+.hello small{display:block;color:var(--muted);font-size:12px}
+.hello b{font-size:18px;font-weight:700;letter-spacing:-.01em}
+.nav{display:grid;gap:2px}
+.nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:11px;color:var(--ink);text-decoration:none;font-weight:500;font-size:14px}
+.nav a svg{width:18px;height:18px;color:var(--muted)}
+.nav a[aria-current="page"]{background:var(--glass-2);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.nav a[aria-current="page"] svg{color:var(--accent)}
+.side-f{margin-top:auto;padding:0 8px;font-size:11px;color:var(--muted)}
+
+.main{position:relative;min-width:0;overflow:auto;padding:34px 40px 40px}
+.h1{font-size:30px;font-weight:700;letter-spacing:-.02em;margin:0}
+.lead{color:var(--muted);margin:4px 0 26px;font-size:14px}
+
+/* paket list */
+.shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:22px}
+.pk{text-align:left;display:grid;gap:10px}
+.cover{aspect-ratio:3/4;border-radius:6px 12px 12px 6px;background:var(--c);position:relative;overflow:hidden;box-shadow:0 10px 22px rgba(0,0,0,.14),inset 5px 0 0 rgba(0,0,0,.14);transition:transform .25s cubic-bezier(.2,.7,.2,1);padding:16px 14px;display:flex;flex-direction:column;justify-content:flex-end;color:rgba(255,255,255,.95)}
+.cover b{font-family:var(--read);font-size:19px;font-weight:500;line-height:1.15}
+.cover small{font-size:10px;letter-spacing:.12em;text-transform:uppercase;opacity:.75;position:absolute;top:16px;left:14px}
+.pk:hover .cover{transform:translateY(-4px)}
+.pk-t{font-weight:600;font-size:14px}.pk-s{color:var(--muted);font-size:12px}
+.pk.ghost .cover{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line);color:var(--muted)}
+.pk.ghost{cursor:default}.pk.ghost:hover .cover{transform:none}
+
+/* glass sheet */
+.scrim{position:absolute;inset:0;z-index:30;background:rgba(0,0,0,.18);display:grid;place-items:center;padding:20px;animation:fd .2s}
+@keyframes fd{from{opacity:0}}
+.sheet{width:min(420px,100%);border-radius:24px;background:var(--glass-2);backdrop-filter:blur(30px) saturate(1.8);-webkit-backdrop-filter:blur(30px) saturate(1.8);box-shadow:inset 0 0 0 1px var(--glass-line),0 24px 50px rgba(0,0,0,.2);padding:22px;animation:pop .25s cubic-bezier(.2,.8,.2,1)}
+@keyframes pop{from{transform:scale(.96);opacity:.5}}
+.sheet h3{margin:0;font-size:20px;letter-spacing:-.01em}
+.sheet p{margin:4px 0 16px;color:var(--muted)}
+.toc{list-style:none;margin:0 0 18px;padding:0;display:grid;gap:0}
+.toc li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.toc li span:first-child{font-family:var(--read);font-size:15px}
+.toc li span:last-child{color:var(--muted);font-size:12px;white-space:nowrap}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:2px;border-radius:10px;background:rgba(120,120,128,.14);margin-bottom:16px}
+.seg button{padding:7px 10px;border-radius:8px;font-size:13px;font-weight:600}
+.seg button[aria-pressed="true"]{background:var(--paper);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.row{display:flex;gap:8px;justify-content:flex-end}
+.btn{padding:10px 18px;border-radius:999px;font-weight:600;font-size:14px;white-space:nowrap}
+.btn-p{background:var(--ink);color:var(--paper)}
+.btn-g{background:rgba(120,120,128,.14)}
+.btn[disabled]{opacity:.35;cursor:default}
+
+/* reader (Kindle) */
+.rd{display:grid;grid-template-rows:auto minmax(0,1fr) auto;height:100%;padding:24px 44px 18px}
+.rd-top{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:16px;margin-bottom:22px}
+.circ{width:34px;height:34px;border-radius:999px;display:grid;place-items:center;background:rgba(120,120,128,.16)}
+.circ svg{width:16px;height:16px;color:var(--ink)}
+.crumb{display:flex;align-items:baseline;gap:14px;min-width:0;white-space:nowrap;overflow:hidden}
+.crumb span{font-size:13px;color:var(--ink);opacity:.8;overflow:hidden;text-overflow:ellipsis}
+.crumb i{font-style:normal;font-weight:600;opacity:.9}
+.crumb b{font-family:var(--read);font-weight:500;font-size:17px;overflow:hidden;text-overflow:ellipsis}
+.pg{font-family:var(--read);font-size:17px;font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:14px}
+.ibtn{width:32px;height:32px;border-radius:999px;display:grid;place-items:center;flex:none}
+.ibtn:hover{background:rgba(120,120,128,.14)}
+.ibtn svg{width:18px;height:18px}
+.rd-body{overflow:auto;min-height:0;padding-right:6px}
+.prose{font-family:var(--read);font-size:var(--fs);line-height:1.68;color:var(--ink)}
+.cols{column-count:2;column-gap:48px}
+.para{margin:0 0 1em;break-inside:avoid-column;position:relative;border-radius:4px;transition:background .3s,box-shadow .3s}
+.para .pn{position:absolute;left:-20px;top:.3em;font-family:var(--ui);font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.para p{margin:0}
+.para.hl{background:var(--mark);box-shadow:0 0 0 6px var(--mark)}
+.subh{font-family:var(--read);font-size:1.05em;font-weight:600;margin:1.2em 0 .5em;break-after:avoid}
+.src{font-family:var(--ui);font-size:11px;color:var(--muted);margin-top:6px}
+.tbl{break-inside:avoid;margin:2px 0 1.1em;font-family:var(--ui);font-size:12.5px;font-variant-numeric:tabular-nums;overflow-x:auto}
+.tbl .cap{font-weight:600;margin-bottom:4px}
+.tbl table{border-collapse:collapse;width:100%}
+.tbl th,.tbl td{text-align:left;padding:5px 8px 5px 0;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl th{color:var(--muted);font-weight:500}
+.stanza{display:block}.stanza span{display:block}
+.post{break-inside:avoid;margin:0 0 1.1em}
+.post-h{font-family:var(--ui);font-size:12.5px;display:flex;gap:8px;align-items:baseline}
+.post-h b{font-weight:700}.post-h small{color:var(--muted)}
+.post.op .post-h b{color:var(--accent)}
+.blank{font-family:var(--ui);font-size:.8em;font-weight:600;padding:1px 7px;border-radius:6px;background:rgba(120,120,128,.14);white-space:nowrap}
+.blank.active{background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+
+/* page strip */
+.strip{margin-top:16px;border-radius:20px;background:rgba(120,120,128,.12);padding:12px 18px;display:flex;align-items:center;gap:14px;min-height:96px}
+.thumbs{flex:1;display:flex;gap:14px;overflow-x:auto;min-width:0;padding:10px 4px 4px;scrollbar-width:none}
+.thumbs::-webkit-scrollbar{display:none}
+.th{flex:none;width:52px;height:68px;border-radius:7px;background:var(--thumb);position:relative;display:grid;place-items:end center;padding-bottom:6px;font-weight:700;font-size:15px;color:rgba(255,255,255,.95);overflow:hidden;transition:transform .2s}
+.th::before{content:"";position:absolute;inset:8px 7px 24px;background:repeating-linear-gradient(to bottom,rgba(0,0,0,.18) 0 1.5px,transparent 1.5px 4px);opacity:.6}
+.th[aria-current="true"]{background:var(--paper);color:var(--ink);transform:translateY(-6px) scale(1.1);box-shadow:0 10px 20px rgba(0,0,0,.16)}
+.th.q{background:var(--paper);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line);width:40px;height:40px;border-radius:12px;place-items:center;padding:0;font-size:13px}
+.th.q::before{display:none}
+.th.q.ans{background:var(--ink);color:var(--paper);box-shadow:none}
+.th.q.flg{background:var(--accent);color:#fff;box-shadow:none}
+.th.q[aria-current="true"]{transform:translateY(-3px);box-shadow:0 0 0 2px var(--ink),0 8px 16px rgba(0,0,0,.12)}
+
+/* quiz */
+.qz{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;min-height:0;overflow:hidden}
+.qz .left{overflow:auto;min-height:0;padding:0 6px 0 22px;position:relative}
+.qz .right{overflow:auto;min-height:0;padding-right:6px}
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tabs button{font-size:12px;padding:4px 10px;border-radius:999px;color:var(--muted);background:rgba(120,120,128,.1)}
+.tabs button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.ttl{font-family:var(--read);font-size:20px;font-weight:500;margin:0 0 12px}
+.stem{font-family:var(--read);font-size:18px;line-height:1.55;margin:0 0 18px}
+.opts{display:grid;gap:8px}
+.opt{display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px;text-align:left;padding:11px 14px;border-radius:14px;background:rgba(120,120,128,.08);transition:background .15s}
+.opt:hover{background:rgba(120,120,128,.14)}
+.opt .L{font-weight:700;font-size:13px;color:var(--muted);padding-top:1px}
+.opt .tx{font-size:14.5px}
+.opt.sel{background:var(--ink);color:var(--paper)}.opt.sel .L{color:var(--paper);opacity:.7}
+.opt.ok{background:var(--ok-soft);box-shadow:inset 0 0 0 1.5px var(--ok)}.opt.ok .L{color:var(--ok)}
+.opt.no{background:var(--no-soft);box-shadow:inset 0 0 0 1.5px var(--no)}.opt.no .L{color:var(--no)}
+.opt[disabled]{cursor:default}
+.note{margin-top:16px;padding:14px 16px;border-radius:14px;background:rgba(120,120,128,.08);display:grid;gap:8px;font-size:13.5px}
+.note b.v{font-size:15px}.note b.v.ok{color:var(--ok)}.note b.v.no{color:var(--no)}
+.quote{font-family:var(--read);font-style:italic}
+.dist{margin:0;padding-left:16px;color:var(--muted)}
+.mtab{display:none}
+
+/* progress & result */
+.big{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:30px}
+.tile{border-radius:18px;padding:16px 18px;background:rgba(120,120,128,.08)}
+.tile .n{font-size:30px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.tile .l{color:var(--muted);font-size:12px}
+.h2{font-size:17px;font-weight:700;margin:0 0 10px;letter-spacing:-.01em}
+.skills{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 40px;margin-bottom:30px}
+.sk{display:grid;grid-template-columns:minmax(0,1fr) 90px 36px;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+.sk span{font-size:13.5px}.sk em{font-style:normal;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;font-size:12.5px}
+.meter{height:4px;border-radius:99px;background:rgba(120,120,128,.18);overflow:hidden}
+.meter b{display:block;height:100%;background:var(--ink);border-radius:99px}
+.meter b.low{background:var(--no)}
+.hist{display:grid}
+.hist div{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.hist div span:last-child{color:var(--muted);font-variant-numeric:tabular-nums}
+.empty{color:var(--muted);padding:12px 0;margin:0 0 20px}
+.score{display:flex;align-items:baseline;gap:12px;margin:4px 0 26px}
+.score .n{font-family:var(--read);font-size:64px;font-weight:500;line-height:1;letter-spacing:-.02em}
+.score .s{color:var(--muted)}
+.rv{border-bottom:1px solid var(--line)}
+.rv-h{width:100%;display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:12px;align-items:center;text-align:left;padding:12px 0}
+.rv-h .n{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px}
+.rv-h .t{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}
+.tag.ok{background:var(--ok-soft);color:var(--ok)}.tag.no{background:var(--no-soft);color:var(--no)}.tag.sk{background:rgba(120,120,128,.12);color:var(--muted)}
+.rv-b{padding:0 0 14px 42px}.rv-b .note{margin:0}
+
+
+/* tambah paket */
+.warn{background:var(--accent-soft);color:var(--ink);padding:10px 14px;border-radius:12px;font-size:13px;margin:0 0 18px}
+.fld{display:grid;gap:6px;margin:0 0 18px;max-width:420px}.fld span{font-size:12px;color:var(--muted);font-weight:600}
+input,textarea{font:inherit;color:var(--ink);background:rgba(120,120,128,.08);border:1px solid transparent;border-radius:12px;padding:10px 12px;width:100%}
+input:focus,textarea:focus{outline:none;border-color:var(--accent);background:var(--paper)}
+textarea{min-height:110px;resize:vertical;font-family:var(--read);font-size:14.5px;line-height:1.55}
+.slots{display:grid;gap:14px}
+.slot{display:grid;gap:8px;padding:14px;border-radius:18px;background:rgba(120,120,128,.05);box-shadow:inset 0 0 0 1px var(--line)}
+.slot-h{display:flex;gap:10px;align-items:baseline}.slot-h b{font-size:13px}.slot-h span{font-size:13px;color:var(--muted)}
+.st{margin-left:auto;font-style:normal;font-size:12px;color:var(--muted)}.st.ok{color:var(--ok)}.st.gagal{color:var(--no)}.st.proses{color:var(--accent)}
+.slot-f{display:grid;grid-template-columns:1fr 1fr;gap:8px}.slot-f input{font-size:13px;padding:8px 10px}
+.hint{font-size:12.5px;color:var(--muted);margin:6px 0}
+.imp{min-height:90px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.prev{margin-top:20px;padding:16px;border-radius:18px;background:var(--ok-soft)}
+.pv{padding:10px 0;border-top:1px solid var(--line)}.pv-h{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:13.5px}.pv-h span{color:var(--muted);font-size:12.5px}
+details summary{cursor:pointer;font-size:12.5px;color:var(--accent);margin-top:6px}
+.kor{border-collapse:collapse;width:100%;font-size:12px;margin-top:6px}.kor th,.kor td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:top}.kor tr.miss td{color:var(--no)}
+.chart{break-inside:avoid;margin:4px 0 1.1em;font-family:var(--ui);font-size:12.5px}
+.chart .cap{font-weight:600;margin-bottom:6px}
+.bar-r{display:grid;grid-template-columns:minmax(70px,auto) minmax(0,1fr) 54px;gap:10px;align-items:center;padding:3px 0}
+.bar-t{height:10px;border-radius:99px;background:rgba(120,120,128,.14);overflow:hidden}.bar-t b{display:block;height:100%;background:var(--ink);border-radius:99px;opacity:.75}
+.bar-r em{font-style:normal;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+@media (max-width:820px){.slot-f{grid-template-columns:1fr}}
+
+
+/* jadwal */
+.jd{display:grid;grid-template-columns:minmax(280px,.9fr) minmax(0,1.3fr);gap:28px;align-items:start}
+.day-h{margin-bottom:12px}.day-h h2{font-family:var(--read);font-weight:500;font-size:24px;margin:2px 0 0}.amp{color:var(--accent);font-style:italic}
+.smallc{font-size:12px;color:var(--muted);font-weight:600}
+.dslots{list-style:none;margin:0 0 16px;padding:0;display:grid}
+.dslots li{padding:12px 0;border-bottom:1px solid var(--line);display:grid;gap:5px}
+.ds-h{display:flex;gap:8px;font-size:12px}.ds-h span{color:var(--muted)}
+.ds-t{font-family:var(--read);font-size:16px}
+.ds-r{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chipx{font-size:11.5px;padding:4px 10px;border-radius:999px;background:rgba(120,120,128,.1);color:var(--ink);text-decoration:none}
+a.chipx:hover{background:var(--accent-soft);color:var(--accent)}
+a.chipx.direct{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.chipx.cp{color:var(--muted);box-shadow:inset 0 0 0 1px var(--line);background:transparent}
+a.btn{text-decoration:none;display:inline-block;color:inherit}a.btn-p{color:var(--paper)}
+.cal{border-radius:20px;padding:14px;background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:inset 0 0 0 1px var(--line);position:sticky;top:0}
+.cal-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.cal-h b{font-size:15px}.cal-h .ibtn{font-size:20px}
+.cg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.wd{font-size:10.5px;color:var(--muted);text-align:center;padding:4px 0;font-weight:600}
+.cd{min-height:52px;border-radius:11px;display:grid;justify-items:center;align-content:center;gap:2px;padding:4px 2px;position:relative;font-variant-numeric:tabular-nums;min-width:0}
+.cd b{font-size:13px;font-weight:600}.cd i{font-style:normal;font-size:8.5px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd .dots{display:flex;gap:3px}.cd .dots u{width:5px;height:5px;border-radius:99px;background:rgba(120,120,128,.25)}.cd .dots u.id{background:#4F7A5E}.cd .dots u.en{background:#5A6E9C}
+.cd:hover{background:rgba(120,120,128,.1)}
+.cd.now{box-shadow:inset 0 0 0 1.5px var(--accent)}
+.cd.sel{background:var(--ink)}.cd.sel b,.cd.sel i{color:var(--paper)}
+.legend2{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:11.5px;color:var(--muted);margin-top:10px}
+.legend2 i{display:inline-block;width:8px;height:8px;border-radius:99px;margin-right:5px}.legend2 i.id{background:#4F7A5E}.legend2 i.en{background:#5A6E9C}
+.link2{color:var(--accent);font-size:12.5px;margin-left:auto;text-decoration:none;font-weight:600}
+/* beranda */
+.home{display:grid;gap:18px}
+.hh{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.hh .h1{margin-top:2px}
+.todays{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:-6px}
+.today{position:relative;overflow:hidden;border-radius:24px;padding:20px 20px 18px;color:#fff;display:grid;gap:10px;min-height:250px;box-shadow:0 14px 30px rgba(0,0,0,.12)}
+.today.tid{background:linear-gradient(150deg,#5E8A6C 0%,#3F6650 60%,#2F4F3E 100%)}
+.today.ten{background:linear-gradient(150deg,#6C7FAE 0%,#4D5F8E 60%,#3A4870 100%)}
+.today::after{content:"";position:absolute;right:-40px;top:-40px;width:190px;height:190px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.22),transparent 65%)}
+.t-top{display:flex;justify-content:space-between;gap:10px;align-items:center;position:relative;z-index:1}
+.t-sub{font-size:12px;font-weight:600;opacity:.85}
+.t-st{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.18);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.t-st.done{background:rgba(255,255,255,.92);color:#2F4F3E}.t-st.ready{background:rgba(255,230,170,.95);color:#5A3E10}
+.today h3{font-family:var(--read);font-weight:500;font-size:34px;line-height:1;margin:2px 0 4px;position:relative;z-index:1}
+.t-list{list-style:none;margin:0;padding:0;display:grid;gap:5px;font-size:13px;position:relative;z-index:1}
+.t-list li{display:grid;grid-template-columns:24px minmax(0,1fr);opacity:.92}.t-list b{opacity:.65;font-size:11px;padding-top:1px}
+.t-btn{justify-self:start;margin-top:auto;background:rgba(255,255,255,.95);color:#1f2a24;position:relative;z-index:1}
+.hgrid{display:grid;grid-template-columns:1.5fr 1fr 1.5fr;gap:12px}
+.tile2{border-radius:20px;padding:14px 16px;background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:inset 0 0 0 1px var(--line);display:grid;gap:8px;align-content:start}
+.tile2.num b{font-size:34px;font-weight:700;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
+.wk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center}
+.wkd span{font-size:10px;color:var(--muted);display:block;margin-bottom:4px}
+.ring{width:30px;height:30px;margin:0 auto;border-radius:99px;display:grid;place-items:center;font-size:12px;font-weight:600;box-shadow:inset 0 0 0 1.5px var(--line);font-variant-numeric:tabular-nums}
+.ring.half{box-shadow:inset 0 0 0 2px var(--accent)}.ring.full{background:var(--accent);color:#fff;box-shadow:none}
+.wkd.t .ring{outline:2px solid var(--ink);outline-offset:2px}
+.focus2{margin:0;font-size:13.5px}
+@media (max-width:980px){.jd{grid-template-columns:1fr}.cal{position:static}.hgrid{grid-template-columns:1fr 1fr}.wkt{grid-column:1/-1}}
+@media (max-width:820px){
+  .todays{grid-template-columns:1fr}
+  .today{min-height:0}
+  .today h3{font-size:30px}
+}
+/* mobile tab bar */
+.tabbar{display:none}
+@media (max-width:820px){
+  body{padding:0}
+  .frame{height:100%;min-height:0;border-radius:0;box-shadow:none;grid-template-columns:1fr}
+  .side{display:none}
+  .main{padding:24px 18px 110px}
+  .tabbar{display:flex;position:absolute;left:16px;right:16px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:20;justify-content:space-around;border-radius:22px;padding:8px;background:var(--glass-2);backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);box-shadow:inset 0 0 0 1px var(--glass-line),0 10px 30px rgba(0,0,0,.12)}
+  .frame.full .tabbar{display:none}
+  .tabbar a{display:grid;justify-items:center;gap:2px;font-size:10.5px;color:var(--muted);text-decoration:none;padding:4px 12px;border-radius:14px;font-weight:600}
+  .tabbar a svg{width:21px;height:21px}
+  .tabbar a[aria-current="page"]{color:var(--accent)}
+  .rd{padding:16px 18px calc(12px + env(safe-area-inset-bottom,0px))}
+  .cols{column-count:1}
+  .crumb span,.crumb i{display:none}
+  .qz{grid-template-columns:1fr;grid-template-rows:minmax(0,42%) minmax(0,1fr);gap:14px}
+  .qz .left{border-bottom:1px solid var(--line);padding-bottom:12px}
+  .strip{min-height:0;padding:10px 12px}
+  .big{gap:8px}.tile{padding:12px}.tile .n{font-size:22px}
+  .skills{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.kw{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:2px}.kw span{font-size:11px;color:var(--muted);margin-right:2px}.kw i{font-style:normal;font-size:11px;color:var(--muted)}
+.ck summary{font-size:12px;color:var(--muted);margin:0}.ck ul{margin:6px 0 0;padding-left:18px;font-size:12.5px;color:var(--muted);display:grid;gap:3px}
+.slot-tp{font-family:var(--read);font-size:14px}
+.plan{display:grid;gap:12px}
+.pl{display:grid;gap:8px;padding:14px 16px;border-radius:18px;box-shadow:inset 0 0 0 1px var(--line)}
+.pl-in{font-family:var(--read);font-size:16px;padding:8px 10px}
+.fallback{margin-top:16px;font-size:13px;color:var(--muted);padding:12px 14px;border-radius:14px;background:rgba(120,120,128,.07)}.fallback b{color:var(--ink)}
+
+.resume{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:18px;box-shadow:inset 0 0 0 1.5px var(--accent);background:var(--accent-soft)}
+.rs-t{display:grid;gap:2px}.rs-t b{font-family:var(--read);font-size:17px;font-weight:500}.rs-t span:last-child{font-size:12.5px;color:var(--muted)}
+/* layar vertikal: tetap pakai sidebar di kiri */
+@media (max-width:820px){
+  .frame{grid-template-columns:184px minmax(0,1fr)}
+  .side{display:flex;margin:12px 0 12px 12px;padding:14px 8px}
+  .main{padding:22px 18px 30px}
+  .tabbar{display:none!important}
+  .frame.full{grid-template-columns:minmax(0,1fr)}
+  .frame.full .side{display:none}
+}
+@media (max-width:600px){
+  .frame{grid-template-columns:62px minmax(0,1fr)}
+  .side{padding:12px 6px;margin:10px 0 10px 10px}
+  .hello,.side-f,.nav a span{display:none}
+  .nav a{justify-content:center;padding:11px 0}
+  .nav a svg{width:21px;height:21px}
+  .main{padding:20px 14px 28px}
+  .hgrid{grid-template-columns:1fr}
+}
+</style>
+
+<div class="frame" id="frame">
+  <aside class="side" aria-label="Navigasi">
+    <div class="hello"><small>Selamat belajar,</small><b>Faiq</b></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-f">Ruang Baca · Literasi UTBK 2027</div>
+  </aside>
+  <main class="main" id="main"></main>
+  <nav class="tabbar" id="tabbar"></nav>
+  <div id="ov"></div>
+</div>
+
+<script>
+const I={
+ id:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 0 6.5 23H20"/></svg>',
+ en:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>',
+ pr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M5 20V11M12 20V5M19 20v-6"/></svg>',
+ back:'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 10H4M9 5 4 10l5 5"/></svg>',
+ aa:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19 8 5l5 14M4.8 14h6.4M15 19l3.5-9 3.5 9M16 16.5h5"/></svg>',
+ home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg>',
+ cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>',
+ add:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+ flag:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.5L5 21V4a1 1 0 0 1 1-1Z"/></svg>'
+};
+/* ===== DATA CONTOH (skema = file konteks Project) ===== */
+const SAMPLES=[
+{paket_id:"LBIND-000",subtes:"LBIND",judul_paket:"Paket Contoh",warna:"#6E8B74",teks:[
+ {id:"T1",slot:"Sosial-ekonomi",jenis:"artikel",judul:"Ekonomi Gig dan Rasa Aman Pekerja",paragraf:[
+  "Ekonomi gig merujuk pada pola kerja berbasis tugas jangka pendek yang diperantarai platform digital, seperti pengemudi ojek daring, kurir, dan pekerja lepas desain. Dalam pola ini, pekerja tidak terikat kontrak kerja tetap; mereka dibayar per tugas yang diselesaikan. Fleksibilitas waktu menjadi daya tarik utama, terutama bagi pekerja muda dan mereka yang mencari penghasilan tambahan.",
+  "Namun, fleksibilitas itu memiliki harga. Karena status mereka umumnya mitra, bukan karyawan, banyak pekerja gig tidak memperoleh jaminan sosial, cuti berbayar, maupun upah minimum. Pendapatan mereka sangat bergantung pada algoritma platform yang menentukan pembagian order dan besaran insentif. Ketika platform mengubah skema tarif, pekerja hampir tidak memiliki ruang untuk menawar.",
+  "Survei terhadap 1.200 pekerja gig di tiga kota besar menunjukkan bahwa jam kerja yang panjang tidak selalu diikuti pendapatan yang sebanding. Kelompok yang bekerja lebih dari 60 jam per minggu memang berpendapatan mingguan paling tinggi, tetapi pendapatan per jamnya justru paling rendah karena waktu tunggu order yang tidak dibayar ikut bertambah.",
+  "Sejumlah negara mulai mencari jalan tengah. Spanyol, misalnya, mewajibkan platform pengantaran makanan memperlakukan kurir sebagai karyawan. Di Indonesia, wacana yang berkembang lebih moderat: pekerja tetap berstatus mitra, tetapi platform diwajibkan menanggung sebagian iuran jaminan kecelakaan kerja. Pendukung wacana ini menilai perlindungan dasar dapat diberikan tanpa menghilangkan fleksibilitas yang dihargai pekerja."],
+  tabel:{setelah:3,judul:"Pendapatan pekerja gig menurut jam kerja (data ilustrasi)",kolom:["Jam/minggu","Rata-rata jam","Per minggu","Per jam"],baris:[["< 40","35","Rp1.000.000","Rp28.600"],["40–60","50","Rp1.500.000","Rp30.000"],["> 60","70","Rp1.750.000","Rp25.000"]]},
+  sumber:"(Diadaptasi dari berbagai sumber)"},
+ {id:"T2",slot:"Sastra",jenis:"puisi",judul:"Halte Pukul Lima",bait:[
+  ["Di halte pukul lima,","jam dinding berlari lebih cepat dari kaki,","kami menunggu bus yang membawa pulang","separuh tenaga yang tertinggal di kantor."],
+  ["Lampu jalan menyala satu per satu,","seperti doa yang dibaca terburu-buru;","seorang ibu memeluk tas belanja","lebih erat daripada memeluk harinya."],
+  ["Kota ini tak pernah benar-benar tidur,","ia hanya memejam sebentar","agar kami percaya","bahwa besok masih bisa dimulai dari awal."]],
+  sumber:"(Puisi orisinal untuk latihan)"}
+],soal:[
+ {no:1,teks_id:"T1",label:"ID-01",level:"LOTS",stem:"Berdasarkan bacaan, penyebab banyak pekerja gig tidak memperoleh jaminan sosial adalah ….",
+  opsi:{A:"jam kerja mereka melebihi batas yang diatur undang-undang",B:"status mereka sebagai mitra, bukan karyawan platform",C:"algoritma platform membagi order secara tidak merata",D:"mereka memilih fleksibilitas waktu daripada upah tetap",E:"platform tidak memiliki dana untuk membayar iuran"},
+  kunci:"B",bukti:{paragraf:2,kutipan:"Karena status mereka umumnya mitra, bukan karyawan, banyak pekerja gig tidak memperoleh jaminan sosial"},
+  pembahasan:"Paragraf 2 menyebut status mitra sebagai sebab langsung tidak adanya jaminan sosial, cuti berbayar, dan upah minimum.",
+  distraktor:{A:"D6 · tidak disebut di teks",C:"D1 · benar di teks, tetapi soal pendapatan",D:"D3 · fleksibilitas adalah daya tarik, bukan sebab",E:"D6 · tidak disebut di teks"}},
+ {no:2,teks_id:"T1",label:"ID-09",level:"MOTS",stem:"Berdasarkan tabel, pernyataan yang paling tepat adalah ….",
+  opsi:{A:"pendapatan per jam meningkat seiring bertambahnya jam kerja",B:"kelompok 40–60 jam memiliki pendapatan per jam tertinggi",C:"pendapatan mingguan kelompok > 60 jam dua kali lipat kelompok < 40 jam",D:"selisih pendapatan per jam kelompok < 40 jam dan > 60 jam lebih dari Rp5.000",E:"semua kelompok memiliki pendapatan per jam yang hampir sama"},
+  kunci:"B",bukti:{paragraf:3,kutipan:"Tabel: Rp28.600 · Rp30.000 · Rp25.000 per jam"},
+  pembahasan:"Pendapatan per jam tertinggi ada pada kelompok 40–60 jam (Rp30.000). Polanya naik lalu turun.",
+  distraktor:{A:"D11 · per jam turun di > 60 jam",C:"D11 · 1,75 juta bukan dua kali 1 juta",D:"D11 · selisihnya Rp3.600",E:"D2 · generalisasi"}},
+ {no:3,teks_id:"T1",label:"ID-06",level:"HOTS",stem:"Manakah asumsi yang paling logis mendasari wacana jalan tengah di Indonesia?",
+  opsi:{A:"Pekerja gig lebih menghargai fleksibilitas daripada perlindungan apa pun.",B:"Status karyawan akan selalu menghapus fleksibilitas kerja.",C:"Perlindungan dasar dan fleksibilitas kerja tidak harus dipertentangkan.",D:"Platform akan menaikkan tarif jika diwajibkan membayar iuran.",E:"Kebijakan Spanyol telah gagal melindungi kurir."},
+  kunci:"C",bukti:{paragraf:4,kutipan:"perlindungan dasar dapat diberikan tanpa menghilangkan fleksibilitas yang dihargai pekerja"},
+  pembahasan:"Wacana itu mempertahankan status mitra sambil menambah iuran. Asumsinya, perlindungan dan fleksibilitas bisa berjalan bersama.",
+  distraktor:{A:"D2 · “apa pun” terlalu ekstrem",B:"D2 · kata “selalu”",D:"D6 · tidak dibahas",E:"D6 · teks tidak menilai Spanyol"}},
+ {no:4,teks_id:"T2",label:"ID-12",level:"MOTS",stem:"Majas pada larik “jam dinding berlari lebih cepat dari kaki” adalah ….",
+  opsi:{A:"personifikasi, karena jam digambarkan dapat berlari seperti manusia",B:"simile, karena terdapat kata pembanding “lebih”",C:"metafora, karena jam disamakan langsung dengan kaki",D:"litotes, karena waktu digambarkan lebih rendah dari kenyataan",E:"repetisi, karena kata “lebih” diulang untuk penegasan"},
+  kunci:"A",bukti:{paragraf:1,kutipan:"jam dinding berlari lebih cepat dari kaki"},
+  pembahasan:"“Berlari” adalah tindakan manusia yang dilekatkan pada benda mati, jadi majasnya personifikasi.",
+  distraktor:{B:"D8 · “lebih” bukan penanda simile",C:"D8 · jam tidak disamakan dengan kaki",D:"D6 · tidak ada pengecilan",E:"D6 · “lebih” muncul sekali"}},
+ {no:5,teks_id:"T2",label:"ID-11",level:"HOTS",stem:"Suasana yang paling dominan dalam puisi tersebut adalah ….",
+  opsi:{A:"lelah, tetapi masih menyimpan harapan",B:"gembira karena hari kerja telah selesai",C:"marah terhadap kota yang tidak pernah tidur",D:"putus asa tanpa jalan keluar",E:"tenang dan damai seperti di pedesaan"},
+  kunci:"A",bukti:{paragraf:3,kutipan:"agar kami percaya / bahwa besok masih bisa dimulai dari awal"},
+  pembahasan:"Bait 1–2 menggambarkan kelelahan, bait 3 menutup dengan harapan untuk esok.",
+  distraktor:{B:"D9 · tidak ada gambaran gembira",C:"D9 · tafsir ekstrem",D:"D9 · bait akhir justru berharap",E:"D6 · latarnya kota"}}
+]},
+{paket_id:"LBE-000",subtes:"LBE",judul_paket:"Sample Set",warna:"#6F7F9C",teks:[
+ {id:"A",slot:"Forum thread",jenis:"thread",judul:"Studying at Home",posts:[
+  {nama:"Nadia",tanggal:"March 3, 2026",isi:"I keep losing focus whenever I study in my room. How do you stay concentrated when studying at home?"},
+  {nama:"Leo",tanggal:"March 3, 2026",isi:"I use the Pomodoro method: 25 minutes of work, 5 minutes of rest. My test scores went up from the 70s to the 80s within one semester."},
+  {nama:"Hana",tanggal:"March 4, 2026",isi:"Honestly, I don't think timers help everyone. I study best in long blocks once my phone is in another room."},
+  {nama:"Ravi",tanggal:"March 4, 2026",isi:"Try our StudyBox app! The first month is free for new users."},
+  {nama:"Mira",tanggal:"March 5, 2026",isi:"Keep your desk only for studying. Your brain learns to associate that spot with work."}]},
+ {id:"D",slot:"Cloze",jenis:"cloze",judul:"Learning from Videos",paragraf:[
+  "Many students {{4}} online videos to review their lessons. Watching a short explanation can be {{5}} than reading a long chapter, especially for visual learners.",
+  "However, teachers warn that students must {{6}} notes while watching, or most of the information will fade within a few days."]}
+],soal:[
+ {no:1,teks_id:"A",label:"EN-09",level:"MOTS",stem:"Which of the following is the issue stated at the beginning of the thread?",
+  opsi:{A:"Finding ways to maintain concentration while learning at home",B:"Comparing studying at home with studying at school",C:"Suggesting apps for occasional study sessions",D:"Explaining why students lose focus at school",E:"Identifying the best time to study at home"},
+  kunci:"A",bukti:{paragraf:1,kutipan:"How do you stay concentrated when studying at home?"},
+  pembahasan:"“How do you stay concentrated” diparafrasekan menjadi “finding ways to maintain concentration”.",
+  distraktor:{B:"D6 · tidak ada perbandingan",C:"D7 · kata kunci diganti",D:"D4 · masalahnya di rumah",E:"D7 · waktu tidak ditanyakan"}},
+ {no:2,teks_id:"A",label:"EN-09",level:"MOTS",stem:"Who provides a tip by giving evidence?",
+  opsi:{A:"Nadia",B:"Leo",C:"Hana",D:"Ravi",E:"Mira"},
+  kunci:"B",bukti:{paragraf:2,kutipan:"My test scores went up from the 70s to the 80s within one semester."},
+  pembahasan:"Leo memberi tip (Pomodoro) sekaligus bukti hasil berupa kenaikan nilai.",
+  distraktor:{A:"pembuka thread",C:"tip tanpa bukti",D:"iklan",E:"alasan, bukan bukti hasil"}},
+ {no:3,teks_id:"A",label:"EN-03",level:"MOTS",stem:"The word “associate” in Mira's post is closest in meaning to ….",
+  opsi:{A:"connect",B:"separate",C:"compare",D:"replace",E:"remember"},
+  kunci:"A",bukti:{paragraf:5,kutipan:"Your brain learns to associate that spot with work."},
+  pembahasan:"Associate X with Y berarti menghubungkan X dengan Y.",
+  distraktor:{B:"antonim",C:"D10 · makna berdekatan",D:"D6",E:"D10 · makna berdekatan"}},
+ {no:4,teks_id:"D",label:"G-01",level:"LOTS",format:"blank",stem:"(4) ……",
+  opsi:{A:"uses",B:"use",C:"using",D:"used to",E:"to use"},
+  kunci:"B",bukti:{paragraf:1,kutipan:"Many students ___ online videos"},
+  pembahasan:"Subjek jamak + simple present → V1 tanpa -s.",
+  distraktor:{A:"untuk subjek tunggal",C:"butuh to be",D:"kebiasaan masa lalu",E:"tidak ada verba utama"}},
+ {no:5,teks_id:"D",label:"G-02",level:"MOTS",format:"blank",stem:"(5) ……",
+  opsi:{A:"more easier",B:"easiest",C:"easier",D:"the easier",E:"most easy"},
+  kunci:"C",bukti:{paragraf:1,kutipan:"can be ___ than reading a long chapter"},
+  pembahasan:"Ada “than”, jadi comparative: easy → easier.",
+  distraktor:{A:"double comparative",B:"superlative",D:"artikel tidak perlu",E:"bentuk salah"}},
+ {no:6,teks_id:"D",label:"G-03",level:"MOTS",format:"blank",stem:"(6) ……",
+  opsi:{A:"take",B:"skip",C:"lose",D:"ignore",E:"erase"},
+  kunci:"A",bukti:{paragraf:2,kutipan:"must ___ notes while watching, or most of the information will fade"},
+  pembahasan:"Collocation “take notes”; “or … will fade” menandakan tindakan yang dianjurkan.",
+  distraktor:{B:"berlawanan makna",C:"tidak logis",D:"berlawanan makna",E:"tidak logis"}}
+]}
+];
+let PAKET=[];
+const LABELS={"ID-01":"Informasi tersurat","ID-02":"Makna kata & ungkapan","ID-03":"Sebab-akibat & alasan","ID-04":"Inferensi & prediksi","ID-05":"Penerapan konsep","ID-06":"Asumsi & argumen","ID-07":"Gagasan utama & pesan","ID-08":"Evaluasi teks","ID-09":"Data visual & hitungan","ID-10":"Pengetahuan di luar teks","ID-11":"Sastra · tokoh & suasana","ID-12":"Sastra · majas & diksi",
+"EN-01":"Detail & definition","EN-02":"Reference","EN-03":"Vocabulary in context","EN-04":"Restatement","EN-05":"Main idea & purpose","EN-06":"Attitude & tone","EN-07":"Text relationship","EN-08":"Inference & prediction","EN-09":"Thread · issue & who","EN-10":"Chart & data","G-01":"Grammar · verb form","G-02":"Grammar · word form","G-03":"Vocabulary & collocation"};
+
+/* ===== STATE ===== */
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const S={page:"beranda",view:"page",pk:null,r:0,q:0,ans:{},flag:{},tab:null,p:"soal",mode:LS.get("rb-mode","ujian"),t0:0,el:0,open:{},saved:false};
+const fs=LS.get("rb-fs",null);if(fs)document.documentElement.style.setProperty("--fs",fs+"px");
+const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pk=()=>PAKET.find(p=>p.paket_id===S.pk);
+const fmt=s=>String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");
+let tick=null;
+const PAGES=[["beranda","Beranda",I.home],["jadwal","Jadwal",I.cal],["indonesia","Bahasa Indonesia",I.id],["inggris","Bahasa Inggris",I.en],["progres","Progres",I.pr],["tambah","Tambah paket",I.add]];
+
+function navHTML(tb){return PAGES.filter(p=>!((tb||HOSTED)&&p[0]==="tambah")).map(([k,l,ic])=>`<a href="#${k}" aria-current="${S.view==="page"&&S.page===k?"page":"false"}">${ic}<span>${tb&&l.startsWith("Bahasa ")?l.slice(7):l}</span></a>`).join("")}
+function route(){const h=location.hash.replace("#","");if(PAGES.some(p=>p[0]===h)){S.page=h;S.view="page"}render()}
+window.addEventListener("hashchange",route);
+
+function render(){
+  clearInterval(tick);
+  $("#frame").classList.toggle("full",S.view!=="page");
+  $("#main").style.padding=S.view==="read"||S.view==="quiz"?"0":"";
+  $("#nav").innerHTML=navHTML();$("#tabbar").innerHTML=navHTML(true);
+  ({page:()=>({indonesia:()=>vShelf("LBIND"),inggris:()=>vShelf("LBE"),progres:vProg,tambah:vAdd,jadwal:vJadwal,beranda:vHome,siapkan:vPrep})[S.page](),read:vRead,quiz:vQuiz,result:vResult})[S.view]();
+}
+const main=h=>{$("#main").innerHTML=h;$("#main").scrollTop=0};
+
+/* ===== RAK ===== */
+function vShelf(sub){
+  const list=PAKET.filter(p=>p.subtes===sub),H=getHist();
+  const isID=sub==="LBIND";
+  main(`<h1 class="h1">${isID?"Bahasa Indonesia":"Bahasa Inggris"}</h1>
+   <p class="lead">${isID?"5 teks · 25 soal per paket":"3 teks + teks rumpang · 20 soal per paket"}</p>
+   <div class="shelf">
+    ${list.map(p=>{const h=H[p.paket_id];return `<button class="pk" data-pk="${p.paket_id}"><div class="cover" style="--c:${p.warna}"><small>${p.paket_id}</small><b>${esc(p.judul_paket)}</b></div><div><div class="pk-t">${esc(p.judul_paket)}</div><div class="pk-s">${p.soal.length} soal${h?` · ${Math.round(h.b/h.n*100)}% benar`:""}</div></div></button>`}).join("")}
+    ${[1,2,3].map(i=>`<div class="pk ghost"><div class="cover"><small>Paket 0${i}</small><b style="font-size:15px">Segera</b></div><div><div class="pk-t" style="color:var(--muted)">Paket 0${i}</div><div class="pk-s">menunggu soal</div></div></div>`).join("")}
+   </div>`);
+  $$("[data-pk]").forEach(b=>b.onclick=()=>sheetPaket(b.dataset.pk));
+}
+function overlay(h,bind){$("#ov").innerHTML=`<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true">${h}</div></div>`;$("#scrim").onclick=e=>{if(e.target.id==="scrim")closeOv()};bind&&bind()}
+function closeOv(){$("#ov").innerHTML=""}
+function sheetPaket(id){
+  const p=PAKET.find(x=>x.paket_id===id);
+  const draw=()=>overlay(`<h3>${esc(p.judul_paket)}</h3><p>${p.teks.length} teks · ${p.soal.length} soal</p>
+   <ul class="toc">${p.teks.map(t=>`<li><span>${esc(t.judul)}</span><span>${esc(t.slot)}</span></li>`).join("")}</ul>
+   <div class="seg" role="group" aria-label="Mode"><button data-m="ujian" aria-pressed="${S.mode==="ujian"}">Ujian</button><button data-m="latihan" aria-pressed="${S.mode==="latihan"}">Latihan</button></div>
+   <div class="row">${p._src!=="contoh"?`<button class="btn btn-g" id="del" style="margin-right:auto;color:var(--no)">Hapus</button>`:""}<button class="btn btn-g" id="exp">Unduh JSON</button><button class="btn btn-g" id="cx">Batal</button>${getSesi()?.pk===id?`<button class="btn btn-g" id="go">Mulai ulang</button><button class="btn btn-p" id="rsm">Lanjutkan</button>`:`<button class="btn btn-p" id="go">Mulai membaca</button>`}</div>`,
+   ()=>{$$("[data-m]").forEach(b=>b.onclick=()=>{S.mode=b.dataset.m;LS.set("rb-mode",S.mode);draw()});
+     $("#exp").onclick=()=>exportPaket(p,$("#exp"));
+     const rsm=$("#rsm");if(rsm)rsm.onclick=()=>{closeOv();resumeSesi(getSesi())};
+     const dl=$("#del");if(dl)dl.onclick=()=>overlay(`<h3>Hapus paket ini?</h3><p>${esc(p.judul_paket)} akan hilang dari rak.</p><div class="row"><button class="btn btn-g" id="cx">Batal</button><button class="btn btn-p" id="yes" style="background:var(--no)">Hapus</button></div>`,()=>{$("#cx").onclick=closeOv;$("#yes").onclick=async()=>{await deletePaket(p);closeOv();render()}});
+     $("#cx").onclick=closeOv;$("#go").onclick=()=>{closeOv();clearSesi();Object.assign(S,{pk:id,r:0,q:0,ans:{},flag:{},open:{},el:0,tab:null,p:"soal",saved:false,view:"read"});render()}});
+  draw();
+}
+
+/* ===== TEKS ===== */
+function tblHTML(T){return `<div class="tbl"><div class="cap">${esc(T.judul||"")}</div><table><thead><tr>${(T.kolom||[]).map(k=>`<th>${esc(k)}</th>`).join("")}</tr></thead><tbody>${(T.baris||[]).map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`}
+function chartHTML(G){const v=(G.nilai||[]).map(Number),mx=Math.max(...v,1);return `<div class="chart"><div class="cap">${esc(G.judul||"")}</div>${(G.label||[]).map((l,i)=>`<div class="bar-r"><span>${esc(l)}</span><div class="bar-t"><b style="width:${Math.max(2,v[i]/mx*100)}%"></b></div><em>${esc(v[i])}${esc(G.satuan||"")}</em></div>`).join("")}</div>`}
+function teks(t,o={}){
+  let h="",placed=false;
+  const hit=(n,ps=1)=>!!o.hl&&Number(o.hl.paragraf)===n&&Number(o.hl.passage||1)===ps;
+  const paraList=(arr,ps)=>{let k=0,x="";arr.forEach(p=>{
+    p=String(p);
+    if(p.startsWith("## ")){x+=`<h3 class="subh">${esc(p.slice(3))}</h3>`;return}
+    const i=k++;
+    const body=esc(p).replace(/\{\{(\d+)\}\}/g,(m,n)=>{const s=pk()?.soal.find(q=>q.no==n),a=S.ans[n];return `<span class="blank${+n===o.blank?" active":""}">(${n}) ${a&&s?esc(s.opsi[a]):"……"}</span>`});
+    x+=`<div class="para${hit(i+1,ps)?" hl":""}"><span class="pn">${i+1}</span><p>${body}</p></div>`;
+    if(t.tabel&&ps===1&&Number(t.tabel.setelah)===i+1){x+=tblHTML(t.tabel);placed=true}
+  });return x};
+  if(t.jenis==="paired"&&t.passages){t.passages.forEach((P,pi)=>{h+=`<h3 class="subh">${esc(P.label||"Text "+(pi+1))}</h3>`+paraList(P.paragraf||[],pi+1)})}
+  else if(t.jenis==="puisi"&&t.bait){h+=t.bait.map((b,i)=>`<div class="para stanza${hit(i+1)?" hl":""}"><span class="pn">${i+1}</span>${b.map(l=>`<span>${esc(l)}</span>`).join("")}</div>`).join("")}
+  else if(t.jenis==="thread"&&t.posts){h+=t.posts.map((p,i)=>`<div class="para post${i===0?" op":""}${hit(i+1)?" hl":""}"><span class="pn">${i+1}</span><div class="post-h"><b>${esc(p.nama)}</b><small>${esc(p.tanggal||"")}</small></div><p>${esc(p.isi)}</p></div>`).join("")}
+  else{h+=paraList(t.paragraf||[],1)}
+  if(t.tabel&&!placed)h+=tblHTML(t.tabel);
+  if(t.grafik)h+=chartHTML(t.grafik);
+  if(t.sumber)h+=`<div class="src">${esc(t.sumber)}</div>`;
+  return `<div class="prose${o.cols?" cols":""}">${h}</div>`;
+}
+
+/* ===== BACA (Kindle) ===== */
+function vRead(){
+  const p=pk(),t=p.teks[S.r],last=S.r===p.teks.length-1;
+  main(`<div class="rd">
+    <div class="rd-top"><button class="circ" id="bk" aria-label="Kembali">${I.back}</button>
+      <div class="crumb"><span>${esc(p.judul_paket)}</span><i>\\</i><b>${esc(t.judul)}</b></div>
+      <div class="pg"><button class="ibtn" id="aa" aria-label="Ukuran teks">${I.aa}</button>${S.r+1} / ${p.teks.length}</div></div>
+    <div class="rd-body" style="padding-left:22px">${teks(t,{cols:true})}</div>
+    <div class="strip">
+      <div class="thumbs">${p.teks.map((x,i)=>`<button class="th" data-r="${i}" aria-current="${i===S.r}" aria-label="Teks ${i+1}">${i+1}</button>`).join("")}</div>
+      <button class="btn btn-p" id="nx">${last?"Mulai soal":"Teks berikutnya"}</button>
+    </div></div>`);
+  $("#bk").onclick=()=>{S.view="page";render()};
+  $("#aa").onclick=sheetSize;
+  $$("[data-r]").forEach(b=>b.onclick=()=>{S.r=+b.dataset.r;vRead()});
+  $("#nx").onclick=()=>{if(last){S.t0=Date.now();S.view="quiz";render()}else{S.r++;vRead()}};
+}
+
+/* ===== SOAL ===== */
+function vQuiz(){
+  const p=pk(),s=p.soal[S.q],n=p.soal.length,t=p.teks.find(x=>x.id===(S.tab||s.teks_id));
+  const a=S.ans[s.no],show=S.mode==="latihan"&&!!a;
+  main(`<div class="rd">
+    <div class="rd-top"><button class="circ" id="bk" aria-label="Keluar">${I.back}</button>
+      <div class="crumb"><span>${esc(p.judul_paket)}</span><i>\\</i><b>Soal ${S.q+1}</b></div>
+      <div class="pg"><span style="font-family:var(--ui);font-size:13px;color:var(--muted)" id="clk">${fmt(S.el+Math.floor((Date.now()-S.t0)/1000))}</span><button class="ibtn" id="aa" aria-label="Ukuran teks">${I.aa}</button>${S.q+1} / ${n}</div></div>
+    <div class="qz" data-p="${S.p}">
+      <section class="left" id="left">
+        <div class="tabs">${p.teks.map((x,i)=>`<button data-tab="${x.id}" aria-pressed="${x.id===t.id}">Teks ${i+1}</button>`).join("")}</div>
+        <h2 class="ttl">${esc(t.judul)}</h2>
+        ${teks(t,{hl:show&&t.id===s.teks_id?s.bukti:null,blank:s.format==="blank"?s.no:null})}
+      </section>
+      <section class="right">
+        <p class="stem">${esc(s.stem)}</p>
+        <div class="opts">${Object.entries(s.opsi).map(([k,v])=>{let c="";if(show){if(k===s.kunci)c="ok";else if(k===a)c="no"}else if(k===a)c="sel";return `<button class="opt ${c}" data-k="${k}" ${show?"disabled":""}><span class="L">${k}</span><span class="tx">${esc(v)}</span></button>`}).join("")}</div>
+        ${show?note(s,a):""}
+      </section>
+    </div>
+    <div class="strip">
+      <button class="ibtn" id="pv" aria-label="Sebelumnya" style="${S.q===0?"opacity:.3":""}">${I.back}</button>
+      <div class="thumbs">${p.soal.map((x,i)=>`<button class="th q ${S.flag[x.no]?"flg":S.ans[x.no]?"ans":""}" data-i="${i}" aria-current="${i===S.q}">${i+1}</button>`).join("")}</div>
+      <button class="ibtn" id="fl" aria-label="Tandai ragu-ragu" style="color:${S.flag[s.no]?"var(--accent)":"var(--muted)"}">${I.flag}</button>
+      <button class="btn btn-p" id="nx">${S.q===n-1?"Selesai":"Berikutnya"}</button>
+    </div></div>`);
+  const re=()=>{keep();vQuiz()};
+  $("#bk").onclick=()=>{S.view="page";render()};
+  $("#aa").onclick=sheetSize;
+  $$("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;re()});
+  $$(".opt:not([disabled])").forEach(b=>b.onclick=()=>{S.ans[s.no]=b.dataset.k;S.tab=null;re()});
+  $$("[data-i]").forEach(b=>b.onclick=()=>{S.q=+b.dataset.i;S.tab=null;re()});
+  $("#fl").onclick=()=>{S.flag[s.no]=!S.flag[s.no];re()};
+  $("#pv").onclick=()=>{if(S.q>0){S.q--;S.tab=null;re()}};
+  $("#nx").onclick=()=>{if(S.q===n-1)finish();else{S.q++;S.tab=null;re()}};
+  const tg=$("#left .hl")||$("#left .blank.active");if(tg){const L=$("#left");L.scrollTop=Math.max(0,tg.offsetTop-80)}
+  tick=setInterval(()=>{const c=$("#clk");if(c)c.textContent=fmt(S.el+Math.floor((Date.now()-S.t0)/1000))},1000);
+}
+function keep(){S.el+=Math.floor((Date.now()-S.t0)/1000);S.t0=Date.now()}
+function note(s,a){const ok=a===s.kunci;return `<div class="note"><b class="v ${ok?"ok":"no"}">${ok?"Tepat":a==="-"?"Tidak dijawab":"Belum tepat"} · kunci ${s.kunci}</b><div>${esc(s.pembahasan)}</div><div class="quote">“${esc(s.bukti.kutipan)}”</div><ul class="dist">${Object.entries(s.distraktor||{}).map(([k,v])=>`<li>${k} — ${esc(v)}</li>`).join("")}</ul></div>`}
+function finish(){const p=pk(),k=p.soal.filter(s=>!S.ans[s.no]).length,r=p.soal.filter(s=>S.flag[s.no]).length;
+  overlay(`<h3>Kumpulkan jawaban?</h3><p>${k?`${k} soal belum dijawab.`:"Semua soal sudah dijawab."}${r?` ${r} ditandai ragu-ragu.`:""}</p><div class="row"><button class="btn btn-g" id="cx">Periksa lagi</button><button class="btn btn-p" id="ok">Kumpulkan</button></div>`,
+  ()=>{$("#cx").onclick=closeOv;$("#ok").onclick=()=>{keep();closeOv();S.view="result";render()}})}
+function sheetSize(){const cur=()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--fs"))||17;
+  overlay(`<h3>Ukuran teks</h3><p class="quote" style="font-size:var(--fs);color:var(--ink)">Kota ini tak pernah benar-benar tidur.</p><div class="row" style="justify-content:space-between;align-items:center"><button class="btn btn-g" id="dn">A−</button><span id="fv">${cur()} px</span><button class="btn btn-g" id="up">A+</button></div>`,
+  ()=>{const set=d=>{const v=Math.min(24,Math.max(14,cur()+d));document.documentElement.style.setProperty("--fs",v+"px");LS.set("rb-fs",v);$("#fv").textContent=v+" px"};$("#dn").onclick=()=>set(-1);$("#up").onclick=()=>set(1)})}
+
+/* ===== HASIL ===== */
+function vResult(){
+  const p=pk(),n=p.soal.length,b=p.soal.filter(s=>S.ans[s.no]===s.kunci).length;
+  const by={};p.soal.forEach(s=>{(by[s.label]=by[s.label]||{n:0,b:0}).n++;if(S.ans[s.no]===s.kunci)by[s.label].b++});
+  if(!S.saved){const H=getHist();H[p.paket_id]={sub:p.subtes,judul:p.judul_paket,b,n,by,t:S.el,d:Date.now()};setHist(H);clearSesi();S.saved=true}
+  main(`<button class="circ" id="bk" aria-label="Kembali" style="margin-bottom:18px">${I.back}</button>
+   <div class="lead" style="margin:0">${esc(p.judul_paket)} · ${fmt(S.el)}</div>
+   <div class="score"><span class="n">${b}/${n}</span><span class="s">jawaban tepat</span></div>
+   <h2 class="h2">Per tipe soal</h2>
+   <div class="skills">${Object.entries(by).sort((x,y)=>x[1].b/x[1].n-y[1].b/y[1].n).map(([k,v])=>{const r=Math.round(v.b/v.n*100);return `<div class="sk"><span>${esc(LABELS[k])}</span><div class="meter"><b class="${r<60?"low":""}" style="width:${r}%"></b></div><em>${r}%</em></div>`}).join("")}</div>
+   <h2 class="h2">Pembahasan</h2>
+   <div>${p.soal.map((s,i)=>{const a=S.ans[s.no],st=!a?"sk":a===s.kunci?"ok":"no";return `<div class="rv"><button class="rv-h" data-o="${s.no}"><span class="n">${i+1}</span><span class="t">${esc(s.stem)}</span><span class="tag ${st}">${st==="ok"?"Tepat":st==="no"?"Keliru":"Kosong"}</span></button>${S.open[s.no]?`<div class="rv-b">${note(s,a||"-")}</div>`:""}</div>`}).join("")}</div>
+   <div class="row" style="margin-top:22px;justify-content:flex-start"><button class="btn btn-p" id="hm">Selesai</button><button class="btn btn-g" id="ag">Ulangi</button></div>`);
+  const home=()=>{S.view="page";S.page=p.subtes==="LBIND"?"indonesia":"inggris";render()};
+  $("#bk").onclick=home;$("#hm").onclick=home;
+  $("#ag").onclick=()=>{Object.assign(S,{r:0,q:0,ans:{},flag:{},open:{},el:0,saved:false,view:"read"});render()};
+  $$("[data-o]").forEach(x=>x.onclick=()=>{S.open[x.dataset.o]=!S.open[x.dataset.o];const st=$("#main").scrollTop;vResult();$("#main").scrollTop=st});
+}
+
+/* ===== PROGRES ===== */
+function vProg(){
+  const H=Object.values(getHist());
+  const sum=sub=>{const agg={};H.filter(h=>h.sub===sub).forEach(h=>Object.entries(h.by).forEach(([k,v])=>{agg[k]=agg[k]||{b:0,n:0};agg[k].b+=v.b;agg[k].n+=v.n}));return agg};
+  const avg=H.length?Math.round(H.reduce((a,h)=>a+h.b/h.n,0)/H.length*100):0;
+  const block=(sub,title)=>{const e=Object.entries(sum(sub));return `<h2 class="h2">${title}</h2>${e.length?`<div class="skills">${e.sort((x,y)=>x[1].b/x[1].n-y[1].b/y[1].n).map(([k,v])=>{const r=Math.round(v.b/v.n*100);return `<div class="sk"><span>${esc(LABELS[k])}</span><div class="meter"><b class="${r<60?"low":""}" style="width:${r}%"></b></div><em>${r}%</em></div>`}).join("")}</div>`:`<p class="empty">Belum ada paket ${title} yang selesai.</p>`}`};
+  main(`<h1 class="h1">Progres</h1><p class="lead">Ringkasan dari paket yang sudah kamu kumpulkan.</p>
+   <div class="big"><div class="tile"><div class="n">${H.length}</div><div class="l">paket selesai</div></div><div class="tile"><div class="n">${H.length?avg+"%":"—"}</div><div class="l">rata-rata benar</div></div><div class="tile"><div class="n">${H.reduce((a,h)=>a+h.n,0)}</div><div class="l">soal dikerjakan</div></div></div>
+   ${block("LBIND","Bahasa Indonesia")}${block("LBE","Bahasa Inggris")}
+   <h2 class="h2">Riwayat</h2><div class="hist">${H.length?H.sort((a,b)=>b.d-a.d).map(h=>`<div><span>${esc(h.judul)}</span><span>${h.b}/${h.n} · ${fmt(h.t)}</span></div>`).join(""):`<p class="empty">Riwayat akan muncul setelah kamu mengumpulkan paket pertama.</p>`}</div>`);
+}
+
+/* ===== PENYIMPANAN (db bila tersedia, cadangan browser) ===== */
+const R02="# KONTEKS PROYEK \u2014 Pola Soal Literasi UTBK-SNBT 2025\u20132026\n\nDisusun dari analisis: KatKiel Project 2026 (Literasi Indonesia 32 teks/156 soal; Literasi Inggris 11 teks/65 soal), TO MIPY #1 & #2 2027 (Literasi Indonesia, masing-masing 30 soal/8 teks), dan Prosus INTEN LBE Tambahan UTBK 2026 Set 1 & 2 (masing-masing 20 soal).\n\n---\n\n## BAGIAN A \u2014 ATURAN BERSAMA\n\n### A1. Format soal\n- 5 opsi A\u2013E, satu kunci.\n- Stem yang berakhir \"adalah \u2026.\" / \"is to \u2026.\" \u2192 opsi berupa **frasa huruf kecil tanpa titik** yang melanjutkan stem.\n- Stem berbentuk pertanyaan (\"Mengapa \u2026?\", \"Which of the following \u2026?\") \u2192 opsi berupa **kalimat lengkap** (huruf kapital, boleh diakhiri titik).\n- Opsi dua lapis \"jawaban + karena alasan\" (mis. \"lokasi 1 karena \u2026\"): kedua bagian harus benar agar opsi menjadi kunci.\n- Format negatif \"kecuali / BUKAN / NOT\" maksimal 2 soal per paket. Kata negatifnya ditulis tebal atau kapital.\n\n### A2. Prinsip kunci\n- Kunci = **parafrase** isi teks: kata kunci diganti sinonim, struktur kalimat diubah (contoh: \"mengintegrasikan sistem pengawasan\" \u2192 \"menyatukan sistem pengawasan yang sebelumnya terpisah\"; \"How can people constantly \u2026\" \u2192 \"Finding ways for continuous \u2026\").\n- Kunci harus **menjawab persis yang ditanyakan**, sesuai cakupan (tujuan \u2260 detail, gagasan utama \u2260 satu detail).\n- Kunci boleh memakai bahasa hati-hati (\"possible\", \"cenderung\", \"dapat\") ketika soal meminta penjelasan yang paling mungkin.\n\n### A3. Katalog distraktor (pakai minimal 2 jenis per soal)\n| Kode | Jebakan | Contoh pola |\n|---|---|---|\n| D1 | **Benar tapi tidak menjawab** | Fakta lain dari teks (fasilitas pengaduan OJK) dipakai untuk menjawab \"tujuan pembentukan OJK\" |\n| D2 | **Kata absolut / generalisasi** | selalu, semua, seluruh, sepenuhnya, permanen, langsung menghentikan; fully, entirely, only, without any drawbacks, identical |\n| D3 | **Arah/sebab-akibat terbalik** | \"dari potensial rendah ke tinggi\"; akibat ditulis sebagai sebab |\n| D4 | **Detail salah tempat** | informasi dari paragraf/teks lain dipasang pada konteks yang salah |\n| D5 | **Cakupan salah** | terlalu luas (\"wide applications in electronic goods\") atau terlalu sempit (hanya satu detail) |\n| D6 | **Tidak disebut di teks** | masuk akal secara umum, tapi tidak ada dasarnya di teks |\n| D7 | **Satu kata kunci diganti** | continuous \u2192 occasional/spontaneous; finding ways \u2192 suggesting tips |\n| D8 | **Makna harfiah/umum** | makna kamus padahal yang ditanya makna kontekstual; tafsir puisi terlalu harfiah (luka = penyakit fisik) |\n| D9 | **Tafsir ekstrem** | watak \"sarkastik/emosional\", sikap \"menyalahkan\", tone \"aggressive\" padahal teks moderat |\n| D10 | **Sinonim berdekatan** | Concerned vs Anxious; practicality vs sustainability; avoid vs limit |\n| D11 | **Bertentangan dengan data** | klaim urutan/selisih yang tidak sesuai tabel/grafik; \"semua kategori sama\" |\n| D12 | **Modalitas/subjek diubah** | may happen \u2192 there is; menambah \"totally\"; menukar pelaku |\n\n### A4. Level\n- **LOTS**: informasi tersurat, definisi, referensi.\n- **MOTS**: makna kontekstual, sebab-akibat, restatement, gagasan utama, baca data.\n- **HOTS**: penerapan ke kasus baru, asumsi, inferensi/prediksi, evaluasi teks, sintesis dua teks, hitungan lanjutan.\n- Sebaran per paket: \u00b120% LOTS, \u00b150% MOTS, \u00b130% HOTS.\n\n### A5. Pembahasan\nFormat tiap soal:\n```\nNo. n \u2014 Kunci: X  [Label | Level]\nBukti: Paragraf p \u2014 \"kutipan pendek\"\nAlasan: 1\u20132 kalimat mengapa X benar.\nDistraktor: A (D2) \u2026; B (D1) \u2026; C (D6) \u2026; D (D4) \u2026   \u2190 satu frasa per opsi salah\n```\n\n---\n\n## BAGIAN B \u2014 LITERASI DALAM BAHASA INDONESIA (/LBIND)\n\n### B1. Struktur paket: 5 teks \u00d7 5 soal = 25 soal\n| Slot | Bidang | Ciri wajib |\n|---|---|---|\n| T1 | Sains (fisika/kimia/biologi) | Ada rumus atau data angka. Minimal 1 soal ID-09 (hitungan) atau ID-10 (pengetahuan di luar teks). |\n| T2 | Sosial-ekonomi | Ada tabel atau grafik. Minimal 1 soal ID-09. |\n| T3 | Sejarah/humaniora/sosiologi | Minimal 1 soal ID-05 (penerapan konsep ke kasus baru). |\n| T4 | Kesehatan/lingkungan/kebijakan | Minimal 1 soal ID-06 atau ID-08. |\n| T5 | Sastra | Puisi atau kutipan prosa (bergantian antarpaket). |\n\nJumlah soal ID-10 dalam satu paket: 1\u20132. Kalau satu soal ID-10, tambahkan catatan di pembahasan: \"Soal ini menuntut pengetahuan di luar teks.\"\n\n### B2. Teks\n- Nonsastra: 3\u20135 paragraf, 280\u2013450 kata, gaya artikel populer/ensiklopedis/berita sains. Di bawah teks: \"(Diadaptasi dari \u2026)\" atau \"(Diadaptasi dari berbagai sumber)\".\n- Tabel/grafik ditulis sebagai tabel markdown, dengan judul dan satuan.\n- Sastra: puisi 3\u20135 bait atau kutipan prosa 250\u2013400 kata, dengan nama karya/pengarang di bawahnya (kalau orisinal: \"Puisi orisinal\").\n\n### B3. Sebaran soal\n**Teks nonsastra (5 soal):**\n1. ID-01 informasi tersurat (LOTS)\n2. ID-02 makna istilah/ungkapan (MOTS)\n3. ID-03 atau ID-04 sebab-akibat/inferensi (MOTS\u2013HOTS)\n4. ID-05 / ID-06 / ID-08 penerapan, asumsi, atau evaluasi (HOTS)\n5. Bergilir: ID-07 / ID-09 / ID-10 / ID-08\n\n**Teks sastra (5 soal):** maksud kutipan/larik (ID-02), watak/sikap/suasana (ID-11), majas & fungsinya atau citraan (ID-12), efek diksi/alasan tindakan tokoh (ID-12/ID-11), amanat/nilai (ID-07).\n\n### B4. Label & template stem\n| Label | Nama | Template stem (contoh pola asli) |\n|---|---|---|\n| ID-01 | Informasi tersurat | \"Berdasarkan bacaan, tujuan utama dibentuknya \u2026 adalah \u2026.\" / \"Pernyataan yang sesuai dengan teks di atas adalah \u2026.\" |\n| ID-02 | Makna kata, istilah, ungkapan | \"Berdasarkan bacaan, istilah *\u2026* bermakna \u2026.\" / \"Maksud ungkapan '\u2026' dalam bacaan adalah \u2026.\" |\n| ID-03 | Sebab-akibat & alasan | \"Mengapa \u2026 tetap dikategorikan \u2026?\" / \"Berdasarkan bacaan, penyebab \u2026 adalah \u2026.\" |\n| ID-04 | Inferensi & prediksi | \"Apa yang mungkin terjadi jika \u2026?\" / \"Jika \u2026, kemungkinan yang dapat terjadi adalah \u2026.\" |\n| ID-05 | Penerapan konsep | \"Manakah fenomena berikut yang berada pada tahap \u2026?\" / \"Sebuah produk \u2026. Produk tersebut tergolong \u2026.\" / \"\u2026 yang berpikir pada tahap \u2026 akan mengartikan fenomena tersebut sebagai \u2026.\" |\n| ID-06 | Asumsi & argumen | \"Manakah asumsi yang paling logis terkait \u2026?\" / \"Perhatikan kalimat berikut! \u2026 Manakah argumen paling logis terkait pernyataan tersebut?\" |\n| ID-07 | Gagasan utama, tujuan, pesan | \"Inti permasalahan yang dibahas pada paragraf ketiga adalah \u2026.\" / \"Tujuan penulisan paragraf ke-4 adalah \u2026.\" / \"Pesan penting yang dapat diambil \u2026\" |\n| ID-08 | Evaluasi teks | \"Berikut ini yang menunjukkan kekurangan/kelebihan bacaan tersebut adalah \u2026.\" / \"Manakah fenomena yang paling menggambarkan kelemahan teori \u2026?\" |\n| ID-09 | Data visual & hitungan | \"Berdasarkan tabel, \u2026\" / \"Persentase \u2026 terhadap \u2026 adalah sekitar \u2026.\" / \"Berdasarkan bacaan, interval kontur pada peta tersebut adalah \u2026.\" |\n| ID-10 | Pengetahuan di luar teks | Teks menyebut konsep \u2192 soal meminta rumus/simbol/konsekuensi ilmiah (MgCl\u2082 dari \"magnesium klorida\"; salinitas tinggi \u2192 tekanan uap lebih rendah; hambatan 2\u00d7 \u2192 arus \u00bd) |\n| ID-11 | Sastra: tokoh, sikap, suasana | \"Penggambaran watak tokoh \u2026 yang paling sesuai \u2026\" / \"Suasana yang berkembang dari awal hingga akhir \u2026\" / \"Sikap penyair terhadap \u2026\" |\n| ID-12 | Sastra: majas, diksi, citraan | \"Majas yang digunakan \u2026 adalah \u2026.\" / \"Penggunaan ungkapan '\u2026' dibandingkan kata '\u2026' bertujuan untuk \u2026.\" / \"Larik \u2026 memiliki kesamaan pola majas dengan kalimat \u2026.\" |\n\n### B5. Catatan khas Literasi Indonesia\n- Opsi angka hasil hitungan: kunci + distraktor dari kesalahan hitung yang lazim (salah penyebut, lupa konversi satuan, \u00d710 atau \u00f710).\n- Penerapan konsep: kasusnya **baru** (tidak ada di teks), tapi kriterianya ada di teks.\n- Opsi sastra: hindari tafsir yang bisa diperdebatkan. Kunci harus didukung larik/kalimat yang bisa ditunjuk.\n\n---\n\n## BAGIAN C \u2014 LITERASI DALAM BAHASA INGGRIS (/LBE)\n\n### C1. Struktur paket: 20 soal\n| Bagian | Bentuk teks | Soal |\n|---|---|---|\n| A | **Forum thread**: pembuka (nama + tanggal + pertanyaan), lalu 5\u20136 balasan (nama + tanggal). Satu balasan wajib tidak relevan (iklan/off-topic). Satu balasan memberi tip **dengan bukti** pengalaman/hasil. Satu balasan **berbeda pendapat** secara eksplisit. | 4 |\n| B | **Paired texts**: Text 1 & Text 2 (atau Passage 1 & 2), masing-masing 2\u20134 paragraf, 150\u2013250 kata. Hubungan khas: masalah \u2194 solusi, umum \u2194 khusus, pro \u2194 kontra, konsep A \u2194 konsep B. | 4 |\n| C | **Text + chart**: 1\u20132 paragraf pengantar dan grafik (tabel data: kategori, nilai, satuan) dengan pola yang jelas (naik/turun bertahap, satu selisih terbesar). | 4 |\n| D | **Cloze**: satu teks 3\u20135 paragraf dengan 8 titik `(n) \u2026\u2026`. Boleh berupa deskripsi grafik (*The bar chart (n) \u2026\u2026 the percentage of \u2026*). | 8 |\n\n### C2. Sebaran soal reading\n- **A (thread):** EN-09 issue at the beginning, EN-09 who \u2026?, EN-05 purpose of X's post / EN-09 least relevant answer, EN-06 tone / EN-03 vocabulary.\n- **B (paired):** EN-07 relationship/difference/synthesis, EN-01 detail, EN-02 reference / EN-03 vocabulary / EN-04 restatement, EN-06 attitude / EN-08 prediction-recommendation / EN-07 information location.\n- **C (chart):** EN-10 conclusion supported by data, EN-10/EN-08 recommendation from data, EN-08 inference explaining the pattern, EN-10 evaluate differences (gap) / explain the disparity.\n\n### C3. Label & template stem\n| Label | Nama | Template stem |\n|---|---|---|\n| EN-01 | Detail & definition | \"According to Text 1, \u2026 because it \u2026\" / \"According to Passage 1, culture is defined as \u2026\" / \"Which of the following is TRUE about \u2026?\" |\n| EN-02 | Reference | \"The word 'their' in Text 2 Paragraph 2 refers to \u2026\" |\n| EN-03 | Vocabulary in context | \"The word 'X' in \u2026 is closest in meaning to \u2026\" / \"The phrase 'X' in Text 1 Paragraph 5 is similar to \u2026\" |\n| EN-04 | Restatement | \"Which of the following best restates the sentence '\u2026' in Text 2 Paragraph 2?\" |\n| EN-05 | Main idea & purpose | \"Which of the following is the best main idea of Text 1?\" / \"The purpose of Text 2 / of X's post is to \u2026\" |\n| EN-06 | Attitude, tone, fact/opinion | \"Which of the following statements shows the author's negative attitude toward \u2026?\" (opsi = kutipan dari teks) / \"What is the tone of the thread \u2026?\" / \"Which of the following sentences from Text 2 is an opinion?\" |\n| EN-07 | Text relationship & synthesis | \"What is the relationship between Text 1 and Text 2?\" / \"What is the difference between Passage 1 and Passage 2?\" / \"Which \u2026 best synthesizes the key arguments from BOTH passages \u2026?\" / \"Information about \u2026 can be found in \u2026\" (opsi: Text 1 Paragraph x and Text 2 Paragraph y) |\n| EN-08 | Inference, prediction, recommendation | \"Based on the two texts, which of the following will most likely happen in the future?\" / \"\u2026 which of the following recommendations is appropriate \u2026?\" / \"Which inference best explains the pattern \u2026?\" |\n| EN-09 | Thread: issue & who | \"Which of the following is the issue stated at the beginning of the thread?\" / \"Who provides a tip on \u2026 by giving evidence?\" / \"Who explicitly suggests \u2026?\" / \"Who posts the least relevant answer to X's question?\" / \"Who gave the most relevant response \u2026?\" |\n| EN-10 | Chart & data | \"Which conclusion is most strongly supported by the data?\" / \"Which statement best evaluates the differences between categories?\" / \"Which of the following best explains the disparity between \u2026 and \u2026?\" |\n\nOpsi untuk soal \"Who \u2026?\" = 5 nama poster. Distraktor = poster lain yang cocok **sebagian** (mis. menyebut hal yang sama tanpa bukti).\n\n### C4. Cloze grammar (bagian D, 8 titik)\n**5 titik \"bentuk kata\"**: opsi = satu kata dasar dalam 5 bentuk (adopt / adopting / adopted / adopts / adoption). Pilih dari:\n| Label | Poin | Contoh |\n|---|---|---|\n| G-01 | Present perfect (have/has + V3) | Many companies have **adopted** \u2026 |\n| G-01 | Modal + V1 | must **develop**, can **adapt** |\n| G-01 | Passive with modal (modal + be + V3) | it can be clearly **seen** that \u2026 |\n| G-01 | Subject\u2013verb agreement | The bar chart **shows** \u2026; 40 percent of individuals **use** \u2026 |\n| G-01 | Verb pattern (to + V1, force sb to V1) | struggle to **maintain** |\n| G-02 | Participle clause | \u2026, **reaching** approximately 95 percent |\n| G-02 | Comparative (jebakan: more higher, the most higher) | slightly **higher than** |\n| G-02 | Word form setelah article/adjective | a further **reduction** |\n\n**3 titik \"makna\"**: opsi berupa 5 kata dengan bentuk yang sama tetapi makna berbeda (ignore / reject / explore / remove / avoid). Jawaban ditentukan oleh konteks atau data di kalimat lain.\n| Label | Poin | Contoh |\n|---|---|---|\n| G-03 | Vocabulary from context | forced organizations to **explore** alternative models |\n| G-03 | Arah tren sesuai data | usage **declines** gradually with age |\n| G-03 | Collocation | have a significant **impact** on |\n\n### C5. Catatan khas Literasi Inggris\n- Tidak ada soal pengetahuan di luar teks. Jebakan lebih banyak di level kata (D7, D10, D12).\n- Paraphrase harus memakai sinonim akademik (constantly \u2192 continuous, how can \u2192 finding ways, feasibility \u2192 practicality).\n- Opsi restatement: hanya satu yang mempertahankan makna **dan** modalitas kalimat asli.\n\n---\n\n## BAGIAN D \u2014 SKEMA JSON (untuk web)\n\n```json\n{\n  \"paket_id\": \"LBIND-001\",\n  \"subtes\": \"LBIND\",\n  \"judul_paket\": \"Paket 1\",\n  \"teks\": [\n    {\n      \"id\": \"T1\",\n      \"slot\": \"sains\",\n      \"jenis\": \"artikel\",\n      \"judul\": \"\u2026\",\n      \"paragraf\": [\"\u2026\", \"\u2026\"],\n      \"tabel\": { \"judul\": \"\u2026\", \"kolom\": [\"\u2026\", \"\u2026\"], \"baris\": [[\"\u2026\", \"\u2026\"]], \"catatan\": \"(data ilustrasi)\" },\n      \"sumber\": \"(Diadaptasi dari berbagai sumber)\"\n    }\n  ],\n  \"soal\": [\n    {\n      \"no\": 1,\n      \"teks_id\": \"T1\",\n      \"label\": \"ID-01\",\n      \"level\": \"LOTS\",\n      \"format\": \"biasa\",\n      \"stem\": \"\u2026\",\n      \"opsi\": { \"A\": \"\u2026\", \"B\": \"\u2026\", \"C\": \"\u2026\", \"D\": \"\u2026\", \"E\": \"\u2026\" },\n      \"kunci\": \"C\",\n      \"bukti\": { \"paragraf\": 2, \"kutipan\": \"\u2026\" },\n      \"pembahasan\": \"\u2026\",\n      \"distraktor\": { \"A\": \"D2: \u2026\", \"B\": \"D1: \u2026\", \"D\": \"D6: \u2026\", \"E\": \"D4: \u2026\" }\n    }\n  ]\n}\n```\n\nVariasi field `teks` per jenis:\n- `\"jenis\": \"puisi\"` \u2192 `\"bait\": [[\"larik\", \"larik\"], [\"\u2026\"]]`\n- `\"jenis\": \"thread\"` \u2192 `\"posts\": [{ \"nama\": \"\u2026\", \"tanggal\": \"\u2026\", \"isi\": \"\u2026\" }]` (post pertama = pembuka)\n- `\"jenis\": \"paired\"` \u2192 `\"passages\": [{ \"label\": \"Text 1\", \"paragraf\": [\"\u2026\"] }, { \"label\": \"Text 2\", \"paragraf\": [\"\u2026\"] }]`\n- `\"jenis\": \"chart\"` \u2192 `\"grafik\": { \"tipe\": \"bar\", \"judul\": \"\u2026\", \"label\": [\"\u2026\"], \"nilai\": [0], \"satuan\": \"%\" }`\n- `\"jenis\": \"cloze\"` \u2192 paragraf memuat penanda `{{n}}` di posisi titik kosong. Soalnya memakai `\"format\": \"blank\"` dan `\"stem\": \"(n) \u2026\u2026\"`.\n\n`format`: `\"biasa\"` | `\"kecuali\"` | `\"blank\"`. `level`: `\"LOTS\"` | `\"MOTS\"` | `\"HOTS\"`.\n\nField tambahan di setiap objek `teks`:\n- `\"asal\": \"artikel\"` (dari artikel yang ditempel) atau `\"asal\": \"buatan\"` (ditulis mengikuti file 03).\n- `\"koreksi\": [{ \"paragraf\": 2, \"semula\": \"\u2026\", \"menjadi\": \"\u2026\", \"alasan\": \"\u2026\" }]`, hanya untuk `asal: \"artikel\"`. Isi `[]` kalau tidak ada koreksi.\n- `\"sumber\"`: untuk artikel, tulis \"(Diadaptasi dari <media>, <tautan>)\". Untuk teks buatan, tulis \"(Teks orisinal untuk latihan)\". Kalau ada data ilustrasi, tambahkan \"; data ilustrasi\".\n\n---\n\n## BAGIAN E \u2014 MODE ARTIKEL ASLI (/ARTIKEL)\n\n### E1. Prinsip\n- Artikel dipakai **utuh**: semua paragraf, sepanjang apa pun. Panjang teks melatih daya tahan membaca, jadi tidak ada pemotongan, peringkasan, atau penggabungan paragraf.\n- **Paragraf** = blok yang dipisahkan baris kosong di teks yang ditempel, diberi nomor 1, 2, 3, \u2026. Subjudul di dalam artikel tidak diberi nomor paragraf. Subjudul disimpan sebagai paragraf yang diawali `## ` agar web bisa menampilkannya sebagai subjudul.\n- Kalimat iklan, \"Baca juga: \u2026\", keterangan foto, ajakan berlangganan, dan teks navigasi situs **dibuang**. Ini satu-satunya penghapusan yang diizinkan. Setiap penghapusan dicatat di tabel koreksi dengan alasan \"bukan bagian isi artikel\".\n\n### E2. Koreksi EYD V (hanya artikel berbahasa Indonesia)\nYang **boleh** dikoreksi:\n- Ejaan kata tidak baku menjadi baku sesuai KBBI (*resiko* \u2192 *risiko*, *praktek* \u2192 *praktik*, *analisa* \u2192 *analisis*, *merubah* \u2192 *mengubah*, *diantara* \u2192 *di antara*, *kedepan* \u2192 *ke depan*).\n- Penulisan *di-/ke-* sebagai awalan dan kata depan; partikel *pun*, *-lah*, *-kah*; kata ulang; gabungan kata.\n- Huruf kapital, huruf miring untuk istilah asing yang belum diserap, dan penulisan angka, satuan, mata uang, dan persen (*Rp1.000.000*, *2,5 persen* atau *2,5%*, *5 km*).\n- Tanda baca: koma setelah konjungsi antarkalimat (*Namun,* *Oleh karena itu,*), tanda petik, titik dua, tanda pisah, dan elipsis.\n- Struktur serapan terjemahan yang melanggar kaidah, **tanpa mengubah makna**:\n  - *di mana / yang mana* sebagai kata penghubung \u2192 *tempat*, *yang*, atau kalimat dipecah\n  - *daripada* yang salah pakai \u2192 *dari* atau *ketimbang*\n  - kalimat tanpa subjek karena preposisi di awal (*Bagi warga yang \u2026 maka \u2026* \u2192 *Warga yang \u2026 *)\n  - pleonasme (*sangat \u2026 sekali*, *para \u2026 -para*, *agar supaya*)\n  - *hal ini dikarenakan* \u2192 *hal ini disebabkan oleh* / *karena*\n  - *merupakan salah satu dari* \u2192 *merupakan salah satu*\n\nYang **tidak boleh**: mengganti kata yang sudah baku dengan sinonimnya, mengubah urutan informasi, menambah atau mengurangi informasi, memperhalus gaya, atau \"memperbaiki\" opini penulis.\n\nKalau sebuah kalimat terjemahan terlalu rusak sehingga koreksi tata bahasa pasti mengubah susunannya, ubah seminimal mungkin, lalu tandai di tabel dengan alasan \"struktur kalimat diperbaiki\" agar bisa dicek.\n\n### E3. Menyusun soal dari artikel panjang\n- Bukti setiap soal tetap menunjuk satu paragraf (`bukti.paragraf`).\n- Sebarkan soal ke seluruh artikel: awal, tengah, dan akhir. Jangan menumpuk di 3 paragraf pertama.\n- Artikel panjang boleh mendapat 1 soal ekstra (maksimal 6 soal per teks), asalkan total paket tetap 25/20. Kurangi soal dari teks lain untuk mengimbanginya.\n- Soal gagasan utama untuk artikel panjang menanyakan **paragraf tertentu** atau **bagian tertentu** (\"paragraf 6\u20138\"), selain gagasan utama keseluruhan.\n\n### E4. Slot terkunci\nPeriksa setiap artikel terhadap ciri wajib slotnya (Bagian B1/C1). Kalau ciri itu tidak ada, misalnya slot T2 tanpa tabel:\n1. Kalau artikel memuat angka yang cukup, buat **tabel \"diolah dari teks\"** dari angka-angka tersebut (aturannya di file 03, Bagian 6). Isi artikel tetap tidak diubah.\n2. Kalau tidak bisa, ganti tipe soalnya dengan tipe lain yang masih ada di blueprint teks itu, lalu catat di \"Slot terkunci\".\n3. Slot yang memang tidak bisa diisi dari artikel (sastra, thread, teks berpasangan kedua, teks + grafik) **dibuat** mengikuti file 03.\n", R03="# PANDUAN TEKS BUATAN \u2014 Menulis Teks Literasi yang Terasa Ditulis Manusia\n\nDipakai ketika sebuah slot tidak punya artikel asli, misalnya teks sastra, thread forum, teks kedua dari pasangan teks, teks dengan grafik, atau tabel pendamping. Ikuti tahapan setiap jenis teks **secara berurutan**. Jangan langsung menulis sebelum tahap perencanaan selesai.\n\n---\n\n## BAGIAN 1 \u2014 PRINSIP UMUM\n\n### 1.1 Mulai dari soal, bukan dari teks\nTeks UTBK dibuat supaya bisa diuji. Sebelum menulis, tentukan dulu tipe soal yang akan dibuat dari teks itu (dari blueprint di file 02), lalu **tanamkan bahan ujinya** di dalam teks:\n| Tipe soal yang direncanakan | Yang harus ditanam di teks |\n|---|---|\n| Informasi tersurat | 1 kalimat yang menyatakan sebab, tujuan, atau definisi secara jelas |\n| Makna istilah/kata | 1 istilah teknis atau kata bermakna ganda yang maknanya bisa ditarik dari kalimat di sekitarnya |\n| Inferensi/prediksi | Kecenderungan atau tren yang tidak disimpulkan sendiri oleh penulis |\n| Asumsi | Sebuah kebijakan atau saran yang punya dasar pemikiran tersirat |\n| Penerapan konsep | Kriteria atau klasifikasi yang jelas (tahap, jenis, kategori) |\n| Evaluasi teks | Satu kelemahan wajar: klaim tanpa data pembanding, atau satu sisi yang tidak dibahas |\n| Data/hitungan | Angka yang bisa dibandingkan, dijumlahkan, atau dipersentasekan |\n| Sikap penulis / opini | 1 kalimat penilaian penulis yang tidak netral, ditempatkan di tengah teks |\n| Referensi (EN) | Kata ganti (*they, it, their, this*) yang punya dua calon rujukan masuk akal |\n\n### 1.2 Tanda teks buatan mesin yang harus dihindari\n**Bahasa Indonesia:**\n- Pembuka klise: *Di era digital ini\u2026*, *Seiring perkembangan zaman\u2026*, *Tak dapat dimungkiri\u2026*, *Dewasa ini\u2026*\n- Kata yang dipakai berlebihan: *krusial, signifikan, lanskap, ekosistem* (di luar konteks biologi), *memainkan peran penting, menjadi kunci, tak terpisahkan*\n- Pola tiga serangkai di setiap kalimat (*cepat, tepat, dan akurat*)\n- Penutup berupa nasihat umum: *Dengan demikian, sudah saatnya kita semua\u2026*, *Oleh karena itu, diperlukan sinergi berbagai pihak\u2026*\n- Pertanyaan retoris di awal paragraf, dan tanda pisah (\u2014) yang dipakai berkali-kali\n- Semua paragraf sama panjang dan semua kalimat sama panjang\n\n**Bahasa Inggris:**\n- *In today's fast-paced world, delve into, tapestry, navigate the complexities, it is worth noting that, plays a pivotal role, a testament to, game-changer*\n- Penutup *In conclusion, \u2026* yang mengulang isi\n- Kalimat bertingkat yang terlalu rapi di semua paragraf\n\n### 1.3 Ciri teks yang terasa ditulis manusia\n- **Spesifik:** angka (*1.200 responden*, *naik dari 14 menjadi 19 persen*), tempat (*di tiga kabupaten di Nusa Tenggara Timur*), waktu (*sejak 2019*), dan contoh konkret di setiap paragraf.\n- **Panjang kalimat bervariasi:** satu kalimat pendek di antara kalimat panjang.\n- **Satu sudut pandang yang jelas:** artikel populer punya arah, tidak sekadar daftar fakta.\n- **Sumber disebut wajar:** *menurut survei Badan Pusat Statistik*, *sebuah studi di jurnal Nature*, *seorang peneliti gizi di Yogyakarta*. **Jangan** mengarang kutipan langsung dari tokoh nyata yang bernama. Pakai peran (*seorang petani*, *kepala sekolah di Sleman*) atau tokoh fiktif.\n- **Penutup yang tidak menggurui:** akhiri dengan fakta, implikasi, atau pertanyaan terbuka yang muncul dari isi.\n\n### 1.4 Kaidah EYD V wajib (teks Indonesia)\n- Kata baku KBBI: *risiko, praktik, analisis, sistem, kualitas, efektif, objek, aktivitas, apotek, hakikat, napas, nasihat, kreativitas*.\n- *di-* sebagai awalan disambung (*dikirim*), *di* sebagai kata depan dipisah (*di sekolah*). Hal yang sama berlaku untuk *ke-*.\n- Hindari *di mana / yang mana* sebagai penghubung. Hindari *daripada* untuk makna \"dari\".\n- Konjungsi antarkalimat diikuti koma (*Namun, \u2026* *Akibatnya, \u2026*).\n- Penulisan angka: *Rp2.500*, *3,4 persen*, *tahun 2024*, *abad ke-20*, *1.200 orang*. Angka di awal kalimat ditulis dengan huruf.\n- Istilah asing yang belum diserap dicetak miring: *passion project*, *scarcity marketing*.\n- Setiap kalimat punya subjek dan predikat. Hindari kalimat yang diawali preposisi tanpa subjek.\n\n### 1.5 Topik yang sesuai konsep UTBK\nPilih topik yang **menghubungkan sains atau sosial dengan kehidupan nyata Indonesia**, sesuai pola KatKiel, TO MIPY, dan Inten:\n- **Sains:** kimia sehari-hari (garam, logam berat, gula darah), fisika fenomena (orbit, listrik, gelombang), biologi (parasit, enzim, imunisasi), bumi dan iklim (ENSO, albedo, peta kontur).\n- **Sosial-ekonomi:** harga pangan, ekspor-impor, pengangguran, ekonomi digital, pajak, redenominasi, perilaku konsumen.\n- **Sejarah/humaniora:** kerajaan Nusantara, manusia purba Indonesia, pergerakan nasional, teori sosiologi klasik (Comte, Durkheim).\n- **Kesehatan/lingkungan/kebijakan:** penyakit menular, obat herbal, program pemerintah, tambang, sampah, energi.\n- **Inggris:** riset sains terbaru, bisnis dan pemasaran, kesehatan, pendidikan, budaya dan komunikasi, kebijakan publik.\n\n---\n\n## BAGIAN 2 \u2014 PUISI ORISINAL (slot T5 Indonesia)\n\n**Tahap 1 \u2014 Rencana (tulis dulu, jangan ditampilkan):**\n1. Tema sosial atau batin yang konkret (kota dan kelelahan, alam yang rusak, kampung yang ditinggal, bahasa, ibu, kerja).\n2. Satu **citraan pusat** yang menjadi poros puisi (halte, sungai, lampu jalan, sawah).\n3. **Perubahan suasana** antarbait, misalnya resah \u2192 pasrah \u2192 berharap. Ini bahan soal suasana dan perubahannya.\n4. Majas yang ditanam (**minimal 3 jenis berbeda**): personifikasi, simile, metafora, repetisi, hiperbola, paradoks, atau ironi. Setiap majas ditempatkan pada larik yang bisa dikutip.\n5. Amanat yang **tersirat**, tidak diucapkan langsung.\n\n**Tahap 2 \u2014 Menulis:**\n- 3\u20135 bait, 3\u20136 larik per bait. Larik bebas, dan rima tidak wajib.\n- Diksi konkret (benda, warna, bunyi). Hindari kata abstrak beruntun (*cinta, rindu, harapan, kehidupan*) tanpa gambaran.\n- Sisipkan **satu larik yang ambigu secara wajar**. Larik ini menjadi bahan soal \"makna larik\".\n- Hindari klise: *senja jingga merona, rembulan tersenyum, hati yang hancur berkeping-keping*.\n\n**Tahap 3 \u2014 Cek:** setiap soal sastra yang direncanakan harus punya larik bukti. Kalau ada soal tanpa larik bukti, revisi puisinya, bukan soalnya.\n\n## BAGIAN 3 \u2014 KUTIPAN PROSA ORISINAL (alternatif slot T5)\n\n1. **Rencana:** satu tokoh utama dengan **konflik batin** (pulang atau tetap merantau, jujur atau aman, ambisi orang tua atau keinginan sendiri). Tentukan watak lewat tindakan, bukan lewat label.\n2. **Struktur 250\u2013450 kata:** pembukaan latar (2\u20133 kalimat), adegan dengan dialog pendek (2\u20134 baris), reaksi tokoh lain, dan akhir yang terbuka.\n3. Tanamkan: satu tindakan tokoh yang alasannya tersirat (soal \"alasan tokoh \u2026\"), satu majas, satu kalimat yang menunjukkan watak, dan satu reaksi orang sekitar.\n4. Dialog memakai ragam lisan yang wajar, tetapi narasinya tetap baku EYD V.\n5. Di bawah teks: \"(Kutipan cerpen orisinal untuk latihan)\".\n\n## BAGIAN 4 \u2014 THREAD FORUM (bagian A LBE)\n\n1. **Pertanyaan pembuka (OP):** satu masalah personal yang jelas, 2\u20133 kalimat, dan diakhiri pertanyaan \"How \u2026?\" atau \"What should I do \u2026?\". Sebutkan satu kondisi khusus (*I'm diabetic*, *I live in a small apartment*) agar bisa muncul soal \"jawaban yang paling relevan\".\n2. **5\u20136 balasan dengan peran wajib**, yang urutannya diacak:\n   | Peran | Bahan soal |\n   |---|---|\n   | Tip + **bukti** (pengalaman atau hasil terukur) | \"Who provides a tip \u2026 by giving evidence?\" |\n   | Tip tanpa bukti | distraktor untuk soal bukti |\n   | **Tidak setuju** secara eksplisit (*Honestly, I don't think \u2026*) | \"Who explicitly suggests \u2026?\" |\n   | **Tidak relevan** (iklan, promosi, atau keluar topik) | \"least relevant answer\" |\n   | Menjawab kondisi khusus OP | \"most relevant response\" |\n   | Empati atau menenangkan | soal tone |\n3. Nama beragam (Barat, Asia, nama pengguna seperti *Switchdm*), tanggal urut maju dalam rentang 1\u20134 minggu.\n4. Register: kasual dan wajar (*Honestly, Tbh, I'd say*), kontraksi boleh, tetapi tata bahasanya benar dan tanpa salah ketik.\n5. Tanamkan **satu kata bermakna kuat** di salah satu balasan (*disgusting, eliminate, associate*) untuk soal vocabulary.\n\n## BAGIAN 5 \u2014 TEKS BERPASANGAN (bagian B LBE, atau teks kedua dari satu artikel)\n\n1. **Pilih hubungan** di awal: masalah \u2194 solusi, konsep umum \u2194 penerapan khusus, pendukung \u2194 pengkritik, atau konsep A \u2194 konsep B. Ini menjadi kunci soal \"relationship\".\n2. Kalau Text 1 berasal dari artikel asli, Text 2 dibuat untuk **melengkapi hubungan itu**. Text 2 tidak boleh mengulang isinya.\n3. Masing-masing 2\u20134 paragraf, 150\u2013250 kata. Kedua teks memakai **istilah kunci yang sama** agar bisa disintesis.\n4. Tanamkan:\n   - satu kalimat opini dan satu kalimat sikap negatif penulis (soal attitude/opinion)\n   - satu kata ganti dengan dua calon rujukan (soal reference)\n   - satu informasi yang muncul di **paragraf dengan nomor yang sama** di kedua teks (soal \"information can be found in \u2026\")\n   - satu kecenderungan yang belum disimpulkan (soal prediksi/rekomendasi)\n\n## BAGIAN 6 \u2014 TABEL ATAU GRAFIK PENDAMPING\n\n**A. Diolah dari teks** (artikel asli memuat angka):\n- Ambil **hanya angka yang ada di artikel**, lalu susun ulang menjadi tabel. Jangan menambah angka baru.\n- Judul tabel diberi keterangan \"(diolah dari teks)\".\n\n**B. Data ilustrasi** (teks buatan):\n- 3\u20136 kategori dengan pola yang **bisa diuji**: satu kecenderungan utama (naik/turun), satu pengecualian, dan satu selisih terbesar yang jelas.\n- Angka dibulatkan wajar dan saling konsisten (persentase berjumlah masuk akal, nilai per satuan cocok bila dihitung).\n- Judul tabel diberi keterangan \"(data ilustrasi)\".\n- Untuk grafik LBE: simpan sebagai field `grafik` (label, nilai, satuan). Paragraf pengantar 1\u20132 paragraf tidak boleh membocorkan kesimpulan yang ditanyakan.\n\n## BAGIAN 7 \u2014 TEKS RUMPANG (bagian D LBE)\n\n1. Kalau ada artikel Inggris dari pengguna: ambil **3\u20135 paragraf berurutan** dari artikel itu, lalu kosongkan 8 kata **tanpa mengubah kata lain**.\n2. Kalau tidak ada: tulis teks 3\u20135 paragraf (deskripsi grafik, berita singkat, atau teks eksposisi).\n3. Pilih kata yang dikosongkan sesuai kebutuhan blueprint (file 02, Bagian C4): 5 titik bentuk kata dan 3 titik makna. Tidak boleh ada dua titik berurutan dalam satu kalimat.\n4. Setiap titik harus bisa dijawab dari konteks kalimatnya atau kalimat sesudahnya, dan tidak ada opsi kedua yang sama-sama berterima. Contohnya, *take notes* dan *make notes* tidak boleh muncul bersama sebagai opsi.\n\n---\n\n## BAGIAN 8 \u2014 CEK AKHIR TEKS BUATAN\nSebelum menulis soal, cek teks buatan:\n- [ ] Tidak ada frasa dari daftar 1.2.\n- [ ] Setiap paragraf punya minimal satu detail spesifik.\n- [ ] Semua bahan uji dari tahap rencana tertanam dan bisa dikutip.\n- [ ] Teks Indonesia lolos kaidah 1.4.\n- [ ] Tidak ada kutipan karangan dari tokoh nyata. Data ilustrasi diberi label.\n- [ ] Field `asal` bernilai `\"buatan\"` di JSON.\n";
+const COVERS=["#6E8B74","#6F7F9C","#9A7B5F","#7D6E93","#5F8C8C","#8C6F6F","#7C8A5A"];
+let DB=null,SAMPLE=null,UID=null,OWNER=false,REMOTE=[],DB_READY=false;
+const localPaket=()=>LS.get("rb-paket",[]);
+function refreshPaket(){
+  const seen=new Set(),out=[];
+  [...REMOTE.map(p=>({...p,_src:"db"})),...localPaket().map(p=>({...p,_src:"local"})),...SAMPLES.map(p=>({...p,_src:"contoh"}))].forEach(p=>{if(!seen.has(p.paket_id)){seen.add(p.paket_id);out.push(p)}});
+  PAKET=out;
+}
+async function savePaket(p){
+  p.warna=p.warna||COVERS[Math.abs([...p.paket_id].reduce((a,c)=>a*31+c.charCodeAt(0)|0,7))%COVERS.length];
+  p.dibuat=p.dibuat||Date.now();
+  if(DB&&OWNER){try{await DB.doc("paket/"+p.paket_id).set(p);return "db"}catch(e){}}
+  const L=localPaket().filter(x=>x.paket_id!==p.paket_id);L.push(p);LS.set("rb-paket",L);refreshPaket();return "local";
+}
+async function deletePaket(p){
+  if(p._src==="db"&&DB){try{await DB.doc("paket/"+p.paket_id).delete()}catch(e){}}
+  LS.set("rb-paket",localPaket().filter(x=>x.paket_id!==p.paket_id));refreshPaket();
+}
+async function exportPaket(p,btn){
+  const clean=JSON.parse(JSON.stringify(p));delete clean._src;
+  const data=JSON.stringify(clean,null,2),name=p.paket_id+".json",o=btn?btn.textContent:"";
+  let dl=null;try{dl=window.claude&&claude.use?await claude.use("downloads"):null}catch(e){}
+  if(dl){try{await dl.save({filename:name,data});if(btn){btn.textContent="Tersimpan";setTimeout(()=>btn.textContent=o,1600)}return}catch(e){if(e&&e.code!=="unavailable"){if(btn){btn.textContent="Dibatalkan";setTimeout(()=>btn.textContent=o,1600)}return}}}
+  try{await navigator.clipboard.writeText(data);if(btn){btn.textContent="JSON disalin";setTimeout(()=>btn.textContent=o,1800)}}catch(e){overlay(`<h3>${esc(name)}</h3><p>Salin isi berikut, lalu simpan sebagai file ${esc(name)}.</p><textarea class="imp" style="min-height:220px" readonly>${esc(data)}</textarea><div class="row" style="margin-top:10px"><button class="btn btn-p" id="cx">Tutup</button></div>`,()=>$("#cx").onclick=closeOv)}
+}
+function getHist(){return LS.get("rb-hist",{})}
+function setHist(H){LS.set("rb-hist",H);if(DB&&UID){DB.doc("data/users/"+UID+"/progres").set({hist:H}).catch(()=>{})}}
+let HOSTED=false;
+async function loadRepo(){
+  const getJSON=async u=>{const r=await fetch(u,{cache:"no-store"});if(!r.ok)throw r.status;return r.json()};
+  let files=[];
+  const m=location.hostname.match(/^([^.]+)\.github\.io$/),repo=location.pathname.split("/").filter(Boolean)[0];
+  if(m){try{const list=await getJSON(`https://api.github.com/repos/${m[1]}/${repo||m[1]+".github.io"}/contents/data/paket`);files=list.filter(f=>f.name.endsWith(".json")).map(f=>f.download_url)}catch(e){}}
+  if(!files.length){try{files=(await getJSON("data/index.json")).map(n=>"data/paket/"+n)}catch(e){}}
+  const got=await Promise.all(files.map(u=>getJSON(u).catch(()=>null)));
+  REMOTE=got.filter(p=>p&&p.paket_id&&Array.isArray(p.soal));refreshPaket();if(S.view==="page")render();
+}
+async function initRuntime(){
+  if(!window.claude||!claude.use){HOSTED=true;render();await loadRepo();return}
+  const [db,sample,user]=await Promise.all([claude.use("db"),claude.use("sample"),claude.use("user")].map(p=>p.catch(()=>null)));
+  SAMPLE=sample;
+  if(user){try{UID=await user.id()}catch(e){};try{OWNER=!!(await user.isOwner())}catch(e){}}
+  if(db){DB=db;
+    if(user&&!OWNER){try{OWNER=(await user.can("data.write"))!==false}catch(e){}}
+    db.collection("paket").onSnapshot(s=>{REMOTE=s.docs.map(d=>d.data());DB_READY=true;refreshPaket();if(S.view==="page")render()},()=>{});
+    if(UID){try{const d=await db.doc("data/users/"+UID+"/progres").get();if(d.exists){const H={...d.data().hist,...getHist()};LS.set("rb-hist",H)}}catch(e){}
+      try{const d=await db.doc("data/users/"+UID+"/sesi").get();if(d.exists){const o=d.data(),l=getSesi();if(o&&o.pk&&!o.kosong&&(!l||o.t>l.t)){SESI=o;LS.set("rb-sesi",o)}}}catch(e){}}
+  }
+  if(S.view==="page")render();
+}
+
+/* ===== SLOT PER SUBTES ===== */
+const SLOTS={
+ LBIND:[{id:"T1",slot:"Sains",n:5,ciri:"ada rumus atau data angka; minimal 1 soal ID-09 atau ID-10"},
+        {id:"T2",slot:"Sosial-ekonomi",n:5,ciri:"ada tabel; minimal 1 soal ID-09"},
+        {id:"T3",slot:"Sejarah/humaniora",n:5,ciri:"minimal 1 soal ID-05"},
+        {id:"T4",slot:"Kesehatan/lingkungan/kebijakan",n:5,ciri:"minimal 1 soal ID-06 atau ID-08"},
+        {id:"T5",slot:"Sastra",n:5,ciri:"puisi atau kutipan prosa; label ID-02, ID-11, ID-12, ID-07"}],
+ LBE:[{id:"A",slot:"Forum thread",n:4,ciri:"bagian A: thread forum"},
+      {id:"B",slot:"Paired texts",n:4,ciri:"bagian B: Text 1 & Text 2",paired:true},
+      {id:"C",slot:"Text + chart",n:4,ciri:"bagian C: teks pengantar + grafik"},
+      {id:"D",slot:"Cloze",n:8,ciri:"bagian D: teks rumpang 8 titik"}]
+};
+let DRAFT=null;
+const draft=()=>DRAFT||(DRAFT=LS.get("rb-draft",{sub:"LBIND",judul:"",slots:{}}));
+const setDraft=d=>{DRAFT=d;LS.set("rb-draft",d)};
+
+function splitParas(txt){
+  let b=txt.replace(/\r/g,"").split(/\n\s*\n/).map(x=>x.replace(/\s*\n\s*/g," ").trim()).filter(Boolean);
+  if(b.length<=1)b=txt.replace(/\r/g,"").split(/\n/).map(x=>x.trim()).filter(Boolean);
+  return b;
+}
+
+/* ===== PROMPT ===== */
+const SOAL_SHAPE=`{"no":1,"label":"ID-01","level":"LOTS|MOTS|HOTS","format":"biasa|kecuali|blank","stem":"…","opsi":{"A":"…","B":"…","C":"…","D":"…","E":"…"},"kunci":"C","bukti":{"paragraf":2,"kutipan":"…"},"pembahasan":"…","distraktor":{"A":"D2: …","B":"D1: …","D":"D6: …","E":"D4: …"}}`;
+function buildPrompt(sub,sl,input){
+  const head=`Kamu penyusun soal Literasi UTBK-SNBT. Ikuti dua dokumen acuan berikut secara ketat.\n\n<acuan_pola_soal>\n${R02}\n</acuan_pola_soal>\n\n<panduan_teks_buatan>\n${R03}\n</panduan_teks_buatan>\n\n`;
+  const task=`TUGAS\nSubtes: ${sub==="LBIND"?"Literasi dalam Bahasa Indonesia (/LBIND)":"Literasi dalam Bahasa Inggris (/LBE)"}\nSlot: ${sl.id} (${sl.slot}). Ciri wajib slot: ${sl.ciri}.\nJumlah soal: tepat ${sl.n}, dinomori 1 sampai ${sl.n}. Ikuti sebaran soal slot ini di acuan.\nPembahasan selalu dalam bahasa Indonesia.\n`;
+  let body="",shape="";
+  if(input.mode==="artikel"){
+    const paras=input.paras.map((p,i)=>`[${i+1}] ${p}`).join("\n\n");
+    body=`MODE: ARTIKEL ASLI (Bagian E). Artikel di bawah sudah dipecah per paragraf bernomor [n].\nJANGAN menyalin ulang artikel. Kembalikan hanya: judul, daftar nomor paragraf yang sebenarnya subjudul, daftar nomor paragraf yang bukan isi (iklan, "Baca juga", keterangan foto), dan daftar koreksi EYD V ${sub==="LBIND"?"(Bagian E2)":"(hanya salah ketik yang jelas)"}. Setiap "semula" harus berupa potongan teks yang PERSIS ada di paragraf itu.\nSemua nomor paragraf di jawabanmu (bukti, koreksi, subjudul, hapus, tabel.setelah) memakai nomor [n] ASLI di bawah.\nKalau ciri wajib slot tidak ada di artikel, ikuti Bagian E4 (tabel "diolah dari teks" hanya dari angka yang ada di artikel, atau ganti tipe soal) dan jelaskan di "slot_terkunci".\nSumber: ${input.sumber||"(tidak disebutkan)"}\n\n<artikel>\n${paras}\n</artikel>\n`;
+    shape=`{"judul":"judul asli artikel","jenis":"artikel","subjudul":[3],"hapus":[9],"koreksi":[{"paragraf":2,"semula":"…","menjadi":"…","alasan":"…"}],"tabel":null${sl.id==="C"?',"grafik":{"tipe":"bar","judul":"… (diolah dari teks)","label":["…"],"nilai":[0],"satuan":"%"}':""},"slot_terkunci":"","soal":[${SOAL_SHAPE}]}`;
+    if(sl.id==="D")body+=`\nUntuk teks rumpang: ambil 3–5 paragraf berurutan dari artikel, lalu kembalikan paragraf itu UTUH dengan 8 kata dikosongkan memakai penanda {{1}} sampai {{8}} (urutan nomor soal). Kata lain tidak boleh berubah.\n`;
+    if(sl.id==="D")shape=`{"judul":"…","jenis":"cloze","paragraf":["… {{1}} …"],"sumber":"…","slot_terkunci":"","soal":[${SOAL_SHAPE.replace('"bukti":{"paragraf":2','"bukti":{"paragraf":1')}]}`;
+  }else if(input.mode==="paired"){
+    body=`MODE: TEKS BERPASANGAN. ${input.t1?"Text 1 berasal dari pengguna (salin UTUH tanpa mengubah kata).":"Text 1 dibuat mengikuti panduan Bagian 5."} ${input.t2?"Text 2 berasal dari pengguna (salin UTUH tanpa mengubah kata).":"Text 2 dibuat mengikuti panduan Bagian 5, melengkapi hubungan dengan Text 1."}\n${input.topik?"Topik: "+input.topik+"\n":""}${input.t1?"<text1>\n"+input.t1+"\n</text1>\n":""}${input.t2?"<text2>\n"+input.t2+"\n</text2>\n":""}Bukti soal memakai {"passage":1|2,"paragraf":n}.\n`;
+    shape=`{"judul":"…","jenis":"paired","passages":[{"label":"Text 1","paragraf":["…"]},{"label":"Text 2","paragraf":["…"]}],"sumber":"…","slot_terkunci":"","soal":[${SOAL_SHAPE.replace('"bukti":{"paragraf":2','"bukti":{"passage":2,"paragraf":2')}]}`;
+  }else{
+    const map={T5:"puisi orisinal (Bagian 2) atau kutipan prosa orisinal (Bagian 3)",A:"thread forum (Bagian 4)",C:"teks pengantar 1–2 paragraf + grafik data ilustrasi (Bagian 6B)",D:"teks rumpang 3–5 paragraf dengan 8 titik (Bagian 7)"};
+    body=`MODE: TEKS BUATAN. Tulis ${map[sl.id]||"artikel populer 4–6 paragraf, 350–550 kata"} mengikuti panduan teks buatan secara berurutan (rencana → menulis → cek). Teks harus terasa ditulis manusia dan berbahasa baku.\n${input.topik?"Topik/judul dari pengguna: "+input.topik+"\n":"Pilih topik sesuai Bagian 1.5.\n"}`;
+    const jen=sl.id==="A"?`"jenis":"thread","posts":[{"nama":"…","tanggal":"…","isi":"…"}]`:sl.id==="D"?`"jenis":"cloze","paragraf":["… {{1}} …"]`:sl.id==="C"?`"jenis":"artikel","paragraf":["…"],"grafik":{"tipe":"bar","judul":"… (data ilustrasi)","label":["…"],"nilai":[0],"satuan":"%"}`:sl.id==="T5"?`"jenis":"puisi","bait":[["larik","larik"]]  (atau "jenis":"artikel","paragraf":[…] untuk prosa)`:`"jenis":"artikel","paragraf":["…"],"tabel":null`;
+    shape=`{"judul":"…",${jen},"sumber":"(Teks orisinal untuk latihan)","slot_terkunci":"","soal":[${SOAL_SHAPE}]}`;
+    if(sl.id==="A")body+=`Bukti soal thread: "paragraf" = nomor posting (1 = pertanyaan pembuka).\n`;
+    if(sl.id==="T5")body+=`Bukti soal puisi: "paragraf" = nomor bait.\n`;
+  }
+  const out=`\nKELUARAN: balas HANYA satu objek JSON valid berbentuk persis seperti ini (isi sendiri nilainya):\n${shape}\nSebelum menjawab, lakukan cek mandiri dari acuan (kunci terbukti, tidak ada dua jawaban benar, sebaran huruf kunci, distraktor minimal 2 jenis).`;
+  return head+task+"\n"+body+out;
+}
+
+/* ===== MERAKIT HASIL ===== */
+function assembleSlot(sub,sl,input,r){
+  const t={id:sl.id,slot:sl.slot,judul:String(r.judul||sl.slot),asal:"buatan",koreksi:[],sumber:r.sumber||"(Teks orisinal untuk latihan)"};
+  let soal=(r.soal||[]).slice(0,sl.n);
+  if(input.mode==="artikel"&&sl.id!=="D"){
+    const sub2=new Set((r.subjudul||[]).map(Number)),hap=new Set((r.hapus||[]).map(Number));
+    const paras=input.paras.slice(),log=[];
+    (r.koreksi||[]).forEach(k=>{const i=Number(k.paragraf)-1;if(paras[i]==null||!k.semula)return;const ok=paras[i].includes(k.semula);if(ok)paras[i]=paras[i].replace(k.semula,k.menjadi??"");log.push({paragraf:Number(k.paragraf),semula:k.semula,menjadi:k.menjadi,alasan:k.alasan,diterapkan:ok})});
+    const map={},out=[];let n=0;
+    paras.forEach((p,i)=>{const o=i+1;if(hap.has(o)){log.push({paragraf:o,semula:p.slice(0,80)+(p.length>80?"…":""),menjadi:"(dihapus)",alasan:"bukan bagian isi artikel",diterapkan:true});return}if(sub2.has(o)){out.push("## "+p);return}map[o]=++n;out.push(p)});
+    Object.assign(t,{jenis:"artikel",paragraf:out,asal:"artikel",koreksi:log,sumber:input.sumber?`(Diadaptasi dari ${input.sumber})`:"(Sumber tidak disebutkan)"});
+    const remap=v=>map[Number(v)]||Number(v)||1;
+    if(r.tabel&&r.tabel.kolom){t.tabel={...r.tabel,setelah:remap(r.tabel.setelah)}}
+    if(r.grafik&&r.grafik.label)t.grafik=r.grafik;
+    soal=soal.map(s=>({...s,bukti:{...(s.bukti||{}),paragraf:remap(s.bukti?.paragraf)}}));
+  }else{
+    t.jenis=r.jenis||"artikel";
+    ["paragraf","bait","posts","passages","tabel","grafik"].forEach(k=>{if(r[k])t[k]=r[k]});
+    if(input.mode==="artikel"&&sl.id==="D"){t.asal="artikel";t.sumber=input.sumber?`(Diadaptasi dari ${input.sumber})`:t.sumber}
+    if(input.mode==="paired"&&(input.t1||input.t2))t.asal=input.t1&&input.t2?"artikel":"campuran";
+  }
+  t.slot_terkunci=r.slot_terkunci||"";
+  return {teks:t,soal};
+}
+function validSlot(sl,x){
+  const s=x.soal;if(!Array.isArray(s)||s.length<sl.n)return `jumlah soal ${s?.length||0} dari ${sl.n}`;
+  for(const q of s){if(!q.opsi||["A","B","C","D","E"].some(k=>!q.opsi[k]))return "opsi tidak lengkap";if(!["A","B","C","D","E"].includes(q.kunci))return "kunci tidak valid"}
+  const t=x.teks;if(!(t.paragraf?.length||t.bait?.length||t.posts?.length||t.passages?.length))return "teks kosong";
+  return "";
+}
+function finalize(sub,judul,parts){
+  const id=(sub==="LBIND"?"LBIND-":"LBE-")+new Date().toISOString().slice(2,10).replace(/-/g,"")+"-"+Math.random().toString(36).slice(2,5);
+  const teksA=[],soalA=[];let no=0;
+  parts.forEach(({teks:t,soal})=>{
+    const map={};
+    soal.forEach(s=>{const old=s.no;no++;map[old]=no;soalA.push({...s,no,teks_id:t.id,format:s.format||(t.jenis==="cloze"?"blank":"biasa"),stem:t.jenis==="cloze"?`(${no}) ……`:s.stem})});
+    if(t.jenis==="cloze")t.paragraf=t.paragraf.map(p=>p.replace(/\{\{(\d+)\}\}/g,(m,n)=>`{{${map[n]||n}}}`));
+    teksA.push(t);
+  });
+  return {paket_id:id,subtes:sub,judul_paket:judul||"Paket baru",teks:teksA,soal:soalA};
+}
+
+/* ===== HALAMAN TAMBAH PAKET ===== */
+const GEN={running:false,ctl:null,status:{},parts:{},result:null};
+function vAdd(){
+  const d=draft(),slots=SLOTS[d.sub],can=!!SAMPLE;
+  const st=k=>GEN.status[k]||"";
+  main(`<h1 class="h1">Tambah paket</h1>
+   <p class="lead">Tempel artikel utuh di slotnya. Slot yang dikosongkan akan dibuatkan teksnya oleh Claude.</p>
+   ${can?"":`<p class="warn">Pembuatan soal hanya berjalan di dalam aplikasi Claude. Di sini kamu tetap bisa mengimpor JSON dari Project di bagian bawah.</p>`}
+   <div class="seg" style="max-width:320px" role="group" aria-label="Subtes"><button data-sub="LBIND" aria-pressed="${d.sub==="LBIND"}">Bahasa Indonesia</button><button data-sub="LBE" aria-pressed="${d.sub==="LBE"}">Bahasa Inggris</button></div>
+   <label class="fld"><span>Nama paket</span><input id="judul" value="${esc(d.judul)}" placeholder="mis. Paket 01"></label>
+   <div class="slots">${slots.map(sl=>{const v=d.slots[d.sub+sl.id]||{};return `<section class="slot">
+     <div class="slot-h"><b>${sl.id}</b><span>${esc(sl.slot)}</span><em class="st ${st(sl.id).split(" ")[0]}">${esc(stLabel(st(sl.id)))}</em></div>
+     ${v.topik?`<div class="slot-tp">Topik: ${esc(v.topik)}</div>`:""}${sl.id==="A"||sl.id==="T5"?"":`<details class="ck"><summary>Cek artikel sebelum menempel</summary><ul>${cekList(sl.id).map(c=>`<li>${esc(c)}</li>`).join("")}</ul></details>`}
+     ${sl.paired?`<textarea data-f="t1" data-k="${sl.id}" placeholder="Text 1: tempel artikel, atau kosongkan">${esc(v.t1||"")}</textarea><textarea data-f="t2" data-k="${sl.id}" placeholder="Text 2: tempel artikel kedua, atau kosongkan agar dibuatkan">${esc(v.t2||"")}</textarea>`
+       :`<textarea data-f="txt" data-k="${sl.id}" placeholder="${sl.id==="T5"?"Tempel puisi/cerpen, atau kosongkan agar dibuatkan":sl.id==="A"?"Tempel utas forum, atau kosongkan agar dibuatkan":"Tempel artikel utuh di sini, atau kosongkan agar dibuatkan"}">${esc(v.txt||"")}</textarea>`}
+     <div class="slot-f"><input data-f="sumber" data-k="${sl.id}" value="${esc(v.sumber||"")}" placeholder="Sumber: media, tautan"><input data-f="topik" data-k="${sl.id}" value="${esc(v.topik||"")}" placeholder="Topik (kalau dibuatkan)"></div>
+   </section>`}).join("")}</div>
+   <div class="row" style="justify-content:flex-start;margin:18px 0 8px">
+     <button class="btn btn-p" id="gen" ${!can||GEN.running?"disabled":""}>${GEN.running?"Sedang membuat…":"Buat soal"}</button>
+     ${GEN.running?`<button class="btn btn-g" id="stop">Hentikan</button>`:""}
+   </div>
+   <p class="hint">Setiap slot dibuat terpisah, biasanya 1–3 menit per slot. Pemakaian dihitung dari akun Claude-mu.</p>
+   ${GEN.result?previewHTML(GEN.result):""}
+   <h2 class="h2" style="margin-top:34px">Impor dari Project</h2>
+   <p class="hint" style="margin-top:0">Tempel blok JSON hasil Project literasi.</p>
+   <textarea id="imp" class="imp" placeholder='{"paket_id":"LBIND-001", …}'></textarea>
+   <div class="row" style="justify-content:flex-start;margin-top:10px"><button class="btn btn-g" id="impb">Simpan JSON ke rak</button><span id="impm" class="hint"></span></div>`);
+  $$("[data-sub]").forEach(b=>b.onclick=()=>{const x=draft();x.sub=b.dataset.sub;setDraft(x);GEN.status={};GEN.result=null;vAdd()});
+  $("#judul").oninput=e=>{const x=draft();x.judul=e.target.value;setDraft(x)};
+  $$("[data-f]").forEach(el=>el.oninput=()=>{const x=draft(),key=x.sub+el.dataset.k;x.slots[key]=x.slots[key]||{};x.slots[key][el.dataset.f]=el.value;setDraft(x)});
+  const g=$("#gen");if(g)g.onclick=runGen;
+  const sp=$("#stop");if(sp)sp.onclick=()=>GEN.ctl?.abort();
+  $("#impb").onclick=async()=>{try{const p=JSON.parse($("#imp").value);if(!p.paket_id||!Array.isArray(p.teks)||!Array.isArray(p.soal))throw 0;const w=await savePaket(p);$("#impm").textContent=w==="db"?"Tersimpan di rak.":"Tersimpan di browser ini.";$("#imp").value=""}catch(e){$("#impm").textContent="JSON tidak valid atau bukan format paket."}};
+  bindPreview();
+}
+function inputFor(sub,sl){
+  const v=draft().slots[sub+sl.id]||{};
+  if(sl.paired)return {mode:"paired",t1:(v.t1||"").trim(),t2:(v.t2||"").trim(),topik:v.topik,sumber:v.sumber};
+  const txt=(v.txt||"").trim();
+  if(txt&&!(sl.id==="A"||sl.id==="T5"))return {mode:"artikel",paras:splitParas(txt),sumber:v.sumber};
+  if(txt)return {mode:"buatan",topik:"Gunakan teks dari pengguna ini apa adanya (salin utuh tanpa mengubah kata):\n"+txt,sumber:v.sumber};
+  return {mode:"buatan",topik:v.topik};
+}
+async function runGen(){
+  const d=draft(),sub=d.sub,slots=SLOTS[sub];
+  GEN.running=true;GEN.ctl=new AbortController();GEN.result=null;
+  slots.forEach(sl=>{if(!GEN.parts[sub+sl.id])GEN.status[sl.id]="menunggu"});vAdd();
+  const queue=slots.filter(sl=>!GEN.parts[sub+sl.id]);
+  const work=async()=>{while(queue.length&&!GEN.ctl.signal.aborted){const sl=queue.shift();const input=inputFor(sub,sl);
+    GEN.status[sl.id]="proses sedang dibuat…";paintStatus();
+    try{const r=await SAMPLE.json(buildPrompt(sub,sl,input),{modelTier:"complex",signal:GEN.ctl.signal,cache:false,onText:({text})=>{GEN.status[sl.id]=`proses menulis… ${Math.round(text.length/100)/10} rb karakter`;paintStatus()}});
+      const part=assembleSlot(sub,sl,input,r),bad=validSlot(sl,part);
+      if(bad){GEN.status[sl.id]="gagal "+bad}else{GEN.parts[sub+sl.id]=part;GEN.status[sl.id]="ok selesai"}
+    }catch(e){GEN.status[sl.id]=e.code==="cancelled"?"menunggu dihentikan":e.code==="rate_limited"?"gagal batas pemakaian, coba lagi nanti":e.code==="not_granted"?"gagal izin ditolak":"gagal "+(e.code||"error")}
+    paintStatus()}};
+  await Promise.all([work(),work()]);
+  GEN.running=false;
+  if(slots.every(sl=>GEN.parts[sub+sl.id])){GEN.result=finalize(sub,d.judul,slots.map(sl=>GEN.parts[sub+sl.id]));GEN.result.tanggal=d.tanggal||ymd(new Date())}
+  vAdd();
+}
+function stLabel(s){const i=s.indexOf(" ");return i>0&&["ok","gagal","proses"].includes(s.slice(0,i))?s.slice(i+1):s}
+function paintStatus(){$$(".slot").forEach((el,i)=>{const sl=SLOTS[draft().sub][i],em=el.querySelector(".st");if(em&&sl){const s=GEN.status[sl.id]||"";em.textContent=stLabel(s);em.className="st "+s.split(" ")[0]}})}
+function previewHTML(p){
+  return `<div class="prev"><h2 class="h2">Hasil: ${esc(p.judul_paket)}</h2>
+   ${p.teks.map(t=>{const ok=(t.koreksi||[]);return `<div class="pv"><div class="pv-h"><b>${esc(t.id)} · ${esc(t.judul)}</b><span>${t.asal==="artikel"?"artikel asli":t.asal==="campuran"?"campuran":"teks buatan"} · ${p.soal.filter(s=>s.teks_id===t.id).length} soal</span></div>
+     ${ok.length?`<details><summary>Koreksi EYD (${ok.length})</summary><table class="kor"><tr><th>¶</th><th>Semula</th><th>Menjadi</th><th>Alasan</th></tr>${ok.map(k=>`<tr class="${k.diterapkan?"":"miss"}"><td>${k.paragraf}</td><td>${esc(k.semula)}</td><td>${esc(k.menjadi)}</td><td>${esc(k.alasan||"")}${k.diterapkan?"":" · tidak ditemukan, tidak diterapkan"}</td></tr>`).join("")}</table></details>`:t.asal==="artikel"?`<p class="hint" style="margin:4px 0 0">Tidak ada koreksi.</p>`:""}
+     ${t.slot_terkunci?`<p class="hint" style="margin:4px 0 0">Slot terkunci: ${esc(t.slot_terkunci)}</p>`:""}</div>`}).join("")}
+   <div class="row" style="justify-content:flex-start;margin-top:14px"><button class="btn btn-p" id="sv">Simpan ke rak</button><button class="btn btn-g" id="rd">Coba baca</button><button class="btn btn-g" id="dc">Buang</button><button class="btn btn-g" id="exp2">Unduh JSON</button><span id="svm" class="hint"></span></div></div>`;
+}
+function bindPreview(){
+  const sv=$("#sv");if(!sv)return;
+  const clear=()=>{const d=draft();SLOTS[d.sub].forEach(sl=>delete GEN.parts[d.sub+sl.id]);GEN.status={};GEN.result=null};
+  sv.onclick=async()=>{const w=await savePaket(GEN.result);const d=draft();d.slots={};d.judul="";setDraft(d);clear();vAdd();const m=$("#impm");if(m)m.textContent=""; overlay(`<h3>Tersimpan</h3><p>${w==="db"?"Paket sudah ada di rak.":"Paket tersimpan di browser ini."}</p><div class="row"><button class="btn btn-p" id="cx">Oke</button></div>`,()=>$("#cx").onclick=closeOv)};
+  $("#rd").onclick=()=>{const p=GEN.result;PAKET=[p,...PAKET.filter(x=>x.paket_id!==p.paket_id)];Object.assign(S,{pk:p.paket_id,r:0,q:0,ans:{},flag:{},open:{},el:0,tab:null,saved:true,view:"read"});render()};
+  $("#dc").onclick=()=>{clear();vAdd()};
+  $("#exp2").onclick=()=>exportPaket(GEN.result,$("#exp2"));
+}
+
+/* ===== JADWAL BACA ===== */
+const SRC={conv:{n:"The Conversation ID",d:"theconversation.com/id"},tirto:{n:"Tirto",d:"tirto.id"},smith:{n:"Smithsonian",d:"smithsonianmag.com"},natgeo:{n:"National Geographic",d:"nationalgeographic.com"}};
+const TC="https://theconversation.com/id/",TR="https://tirto.id/",SMU="https://www.smithsonianmag.com/category/",NGU="https://www.nationalgeographic.com/";
+const RUB={
+ T1:[["conv","Sains + Teknologi",TC+"sains"],["tirto","Kueri",TR+"kueri"],["tirto","TirtoEco",TR+"bisnis-tirto/tirto-eco"],["tirto","Byte",TR+"bisnis-tirto/byte"]],
+ T2:[["tirto","Decode",TR+"news/decode"],["conv","Ekonomi",TC+"ekonomi"],["tirto","Insider",TR+"bisnis-tirto/insider"],["tirto","Side Job",TR+"bisnis-tirto/sidejob"]],
+ T3:[["tirto","Mozaik",TR+"news/mozaik"],["tirto","Horizon",TR+"news/horizon"],["conv","Pendidikan + Budaya",TC+"pendidikan"],["conv","Politik + Masyarakat",TC+"politik"]],
+ T4:[["tirto","Perspektif",TR+"news/perspektif"],["conv","Kesehatan",TC+"kesehatan"],["conv","Lingkungan",TC+"lingkungan-hidup"],["conv","Isu Anak Muda",TC+"isu-anak-muda"],["tirto","Periksa Fakta",TR+"news/periksa-fakta"],["tirto","TirtoEco",TR+"bisnis-tirto/tirto-eco"],["tirto","GWS",TR+"bisnis-tirto/gws"]],
+ C:[["smith","Smart News",SMU+"smart-news/"]]
+};
+const SM={history:["History",SMU+"history/"],science:["Science & Nature",SMU+"science-nature/"],innovation:["Innovation",SMU+"innovation/"],arts:["Arts & Culture",SMU+"arts-culture/"],travel:["Travel",SMU+"travel/"]};
+const NG={endangered:["Endangered Species","animals/topic/endangered-species"],behaviors:["Animal Behaviors","animals/topic/animal-behaviors"],discoveries:["Animal Discoveries","animals/topic/animal-discoveries"],
+ sites:["Historic Sites","history/topic/historic-sites"],archaeology:["Archaeology","history/topic/archaeology"],ancient:["Ancient History","history/topic/ancient-history"],mysteries:["Historical Mysteries","history/topic/historical-mysteries"],religion:["Religion","culture/topic/religion"],holidays:["Holidays & Traditions","culture/topic/holidays-and-traditions"],
+ nutrition:["Nutrition & Exercise","health/topic/nutrition-and-exercise"],longevity:["Longevity","health/topic/longevity"],diseases:["Diseases & Conditions","health/topic/diseases-and-conditions"],medical:["Medical Breakthroughs","health/topic/medical-breakthroughs"],
+ space:["Space & Astronomy","science/topic/space"],climate:["Climate Change","environment/topic/climate-change"],dino:["Dinosaurs & Fossils","science/topic/dinosaur-and-fossils"],oceans:["Oceans","environment/topic/oceans"],conservation:["Conservation","environment/topic/conservation"],tech:["Tech & Innovation","science/topic/technology-and-innovation"]};
+const smR=(k,sfx)=>["smith",SM[k][0]+(sfx||""),SM[k][1]],ngR=(k,sfx)=>["natgeo",NG[k][0]+(sfx||""),NGU+NG[k][1]];
+const ID_DAYS=[
+ ["Pangan","fermentasi dan mikroba pada makanan","harga beras dan inflasi pangan","sejarah jalur rempah Nusantara","gizi anak dan stunting","sawah dan petani"],
+ ["Energi","baterai dan kendaraan listrik","subsidi BBM dan APBN","sejarah minyak bumi di Hindia Belanda","polusi udara di kota besar","anak di kampung tambang"],
+ ["Laut","pemutihan terumbu karang","ekonomi nelayan dan perikanan","jalur maritim Sriwijaya dan Majapahit","sampah plastik di laut","pesisir yang ditinggalkan"],
+ ["Kota","pulau panas perkotaan (urban heat island)","ekonomi gig dan ojek daring","sejarah kota Batavia","kesehatan mental pekerja kota","perantau di ibu kota"],
+ ["Tubuh","sistem imun dan cara kerja vaksin","BPJS Kesehatan dan pembiayaannya","sejarah wabah di Nusantara","resistensi antibiotik","menunggu di rumah sakit"],
+ ["Digital","cara kerja algoritma dan kecerdasan buatan","e-commerce dan UMKM","sejarah pers dan surat kabar Indonesia","judi daring dan regulasinya","layar yang tak pernah padam"],
+ ["Bumi","gempa dan lempeng tektonik","asuransi bencana dan kerugian ekonomi","letusan Tambora 1815","mitigasi bencana di sekolah","gunung dan doa"],
+ ["Air","air tanah dan siklus air","harga air bersih","sistem irigasi subak Bali","penurunan muka tanah","kemarau panjang"],
+ ["Hutan","hutan sebagai penyimpan karbon","sawit dan ekspor","masyarakat adat dan hutan","kebakaran hutan dan lahan","suara dari hutan"],
+ ["Belajar","tidur, memori, dan cara otak belajar","biaya kuliah dan UKT","Ki Hajar Dewantara dan Taman Siswa","kesehatan mental remaja","malam sebelum ujian"],
+ ["Uang","cara kerja kripto dan blockchain","pinjaman daring dan literasi keuangan","sejarah Oeang Republik Indonesia","perlindungan konsumen jasa keuangan","pasar tradisional"],
+ ["Bahasa","otak dwibahasa","ekonomi kreatif dan industri musik","Sumpah Pemuda dan bahasa Indonesia","bahasa daerah yang terancam punah","kampung halaman"]
+];
+const EN_DAYS=[
+ ["Wildlife","How can I help stray cats in my neighborhood?","animal migration and climate change","science",["behaviors","endangered","discoveries"],"the decline of insect populations","bees and pollination"],
+ ["Ancient worlds","Any tips for enjoying a museum visit?","lost ancient cities and archaeology","history",["archaeology","ancient"],"new archaeological excavations","how the pyramids were built"],
+ ["Ocean","How do I get over my fear of swimming in the sea?","coral reef bleaching and restoration","science",["oceans","conservation"],"record ocean temperatures","deep-sea creatures"],
+ ["Health","I can't sleep the night before exams. What should I do?","the gut microbiome","science",["medical","diseases","longevity"],"screen time and sleep","the benefits of walking"],
+ ["Innovation","How should I start learning to code?","artificial intelligence in medicine","innovation",["tech"],"electric vehicle adoption","the printing press"],
+ ["Space","Can I really stargaze from a big city?","the exploration of Mars","science",["space"],"near-Earth asteroids","how the Moon formed"],
+ ["Food","Is it hard to go vegetarian?","the history of chocolate and coffee","arts",["nutrition","holidays"],"global food waste","fermentation"],
+ ["Climate","How can I use less plastic at home?","melting glaciers","science",["climate","conservation"],"renewable energy growth","planting trees"],
+ ["Arts","How do I start learning a musical instrument?","music and the brain","arts",["sites","religion"],"museum attendance","street art"],
+ ["Travel","Any advice for my first solo trip?","overtourism","travel",["sites","conservation"],"tourist numbers after the pandemic","national parks"],
+ ["Human origins","Are DNA ancestry tests worth it?","human evolution and Homo floresiensis","history",["archaeology","dino"],"ancient DNA discoveries","early stone tools"],
+ ["Inventions","How do I start collecting old coins?","women scientists in history","innovation",["mysteries","tech"],"patents and inventions","the history of the telephone"]
+];
+const ID_KW=[["mikroba","harga pangan","rempah","gizi"],["energi terbarukan","subsidi energi","minyak bumi","polusi"],["terumbu karang","nelayan","maritim","sampah plastik"],["perubahan iklim kota","ojek daring","sejarah Jakarta","kesehatan mental"],["vaksin","BPJS","wabah","antibiotik"],["kecerdasan buatan","UMKM digital","pers","judi online"],["gempa","bencana alam","gunung api","mitigasi bencana"],["air tanah","air bersih","subak","penurunan tanah"],["karbon","kelapa sawit","masyarakat adat","kebakaran hutan"],["otak dan tidur","biaya pendidikan","pendidikan kolonial","remaja"],["kripto","pinjol","sejarah uang","perlindungan konsumen"],["bilingual","ekonomi kreatif","Sumpah Pemuda","bahasa daerah"]];
+const EN_KW=[["animal migration","insects","bees"],["archaeology","excavation","pyramids"],["coral reefs","ocean warming","deep sea"],["gut health","sleep","walking"],["AI medicine","electric vehicles","printing press"],["Mars","asteroids","Moon"],["chocolate history","food waste","fermentation"],["glaciers","renewable energy","trees"],["music brain","museums","street art"],["overtourism","tourism","national parks"],["human evolution","ancient DNA","stone tools"],["women scientists","inventions","telephone"]];
+const CEK_UMUM=["Minimal 4 paragraf yang saling terhubung","Memuat data, sebab-akibat, atau argumen","Bukan daftar tips atau poin pendek"];
+const CEK={T1:["Ada angka, proses, atau konsep ilmiah"],T2:["Ada angka yang bisa diolah jadi tabel"],T3:["Ada urutan peristiwa atau konsep yang bisa diterapkan"],T4:["Ada sikap atau opini penulis"],B:["Kedua teks membahas topik yang sama dari sudut berbeda"],C:["Ada angka untuk grafik (persentase, jumlah, tren)"],D:["Pakai 3–5 paragraf berurutan dengan kalimat yang beragam"]};
+const cekList=id=>id==="D"?CEK.D:[...CEK_UMUM,...(CEK[id]||[])];
+const kwChips=s=>s.kw?`<div class="kw"><span>Kata kunci</span>${s.kw.map((k,i)=>`<button class="chipx cp" data-copy="${esc(k)}" title="${["spesifik","lebih umum","paling umum"][i]||""}">${esc(k)}</button>`).join(`<i>→</i>`)}</div>`:"";
+function bindCopy(){$$("[data-copy]").forEach(b=>b.onclick=async()=>{const t=b.dataset.copy,o=b.textContent;try{await navigator.clipboard.writeText(t);b.textContent="Tersalin"}catch(e){const r=document.createRange();r.selectNodeContents(b);const sl=getSelection();sl.removeAllRanges();sl.addRange(r);return}setTimeout(()=>{b.textContent=o},1400)})}
+const EPOCH=Date.UTC(2026,10,6);
+const HARI=["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"],BULAN=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+function planFor(d){
+  const diff=Math.floor((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-EPOCH)/864e5);
+  const i=((diff%12)+12)%12,j=(((diff+5)%12)+12)%12;
+  const x=ID_DAYS[i],y=EN_DAYS[j],xk=ID_KW[i],yk=EN_KW[j],L=(t,b,tm)=>[t,b,tm.toLowerCase()];
+  return {
+   LBIND:{tema:x[0],slots:[
+    {id:"T1",slot:"Sains",topik:x[1],rub:RUB.T1,kw:L(x[1],xk[0],x[0])},{id:"T2",slot:"Sosial-ekonomi",topik:x[2],rub:RUB.T2,kw:L(x[2],xk[1],x[0])},
+    {id:"T3",slot:"Sejarah/humaniora",topik:x[3],rub:RUB.T3,kw:L(x[3],xk[2],x[0])},{id:"T4",slot:"Kesehatan/lingkungan/kebijakan",topik:x[4],rub:RUB.T4,kw:L(x[4],xk[3],x[0])},
+    {id:"T5",slot:"Sastra",topik:"puisi atau prosa bertema "+x[5],buat:true}]},
+   LBE:{tema:y[0],slots:[
+    {id:"A",slot:"Forum thread",topik:y[1],buat:true},
+    {id:"B",slot:"Paired texts",topik:y[2],kw:L(y[2],yk[0],y[0]),rub:[smR(y[3]," (Text 1)"),...y[4].map(k=>ngR(k," (Text 2)"))]},
+    {id:"C",slot:"Text + chart",topik:y[5],kw:L(y[5],yk[1],y[0]),rub:RUB.C,alt:"atau kosongkan agar dibuatkan dengan data ilustrasi"},
+    {id:"D",slot:"Cloze",topik:y[6],kw:L(y[6],yk[2],y[0]),rub:[ngR(y[4][0]),smR(y[3])]}]}};
+}
+const qlink=(k,kw)=>`https://www.google.com/search?q=${encodeURIComponent("site:"+SRC[k].d+" "+kw)}`;
+const histOn=(key,sub)=>Object.values(getHist()).filter(h=>h.d&&ymd(new Date(h.d))===key&&(!sub||h.sub===sub));
+const paketOn=(key,sub)=>PAKET.filter(p=>p.tanggal===key&&p.subtes===sub);
+function prepPaket(sub,date,over){
+  const P=planFor(date)[sub],d=draft();
+  d.sub=sub;d.judul=`${P.tema} · ${date.getDate()} ${BULAN[date.getMonth()]}`;d.tanggal=ymd(date);
+  P.slots.forEach(s=>{const k=sub+s.id;d.slots[k]=d.slots[k]||{};d.slots[k].topik=(over&&over[s.id])||s.topik});
+  setDraft(d);GEN.status={};GEN.result=null;location.hash="#tambah";
+}
+function openPaket(p){S.pk=p.paket_id;sheetPaket(p.paket_id)}
+function dayStatus(sub,date){
+  const k=ymd(date),h=histOn(k,sub),pk=paketOn(k,sub);
+  if(h.length)return {st:"done",label:`Selesai · ${h[0].b}/${h[0].n}`,h:h[0],pk:pk[0]};
+  if(pk.length)return {st:"ready",label:"Siap dibaca",pk:pk[0]};
+  return {st:"todo",label:"Belum disiapkan"};
+}
+
+/* ----- halaman Jadwal ----- */
+function slotList(sub,P){
+  return `<ol class="dslots">${P.slots.map(s=>`<li><div class="ds-h"><b>${s.id}</b><span>${esc(s.slot)}</span></div><div class="ds-t">${esc(s.topik)}</div>
+    ${s.buat?`<div class="ds-r"><span class="chipx">Dibuatkan Claude</span></div>`:`<div class="ds-r">${s.rub.map(([k,r,u])=>`<a class="chipx${u?" direct":""}" href="${u||qlink(k,s.topik)}" target="_blank" rel="noopener">${SRC[k].n} · ${esc(r)}${u?" ↗":" · cari"}</a>`).join("")}${s.alt?`<span class="hint" style="margin:0">${esc(s.alt)}</span>`:""}</div>${kwChips(s)}`}</li>`).join("")}</ol>`;
+}
+function vJadwal(){
+  const today=new Date(),sel=S.cal?new Date(S.cal):today,m=S.calM?new Date(S.calM):new Date(sel.getFullYear(),sel.getMonth(),1);
+  const P=planFor(sel),tab=S.jtab||"LBIND";
+  const first=new Date(m.getFullYear(),m.getMonth(),1),start=(first.getDay()+6)%7,days=new Date(m.getFullYear(),m.getMonth()+1,0).getDate();
+  let cells="";for(let i=0;i<start;i++)cells+=`<span></span>`;
+  for(let d=1;d<=days;d++){const dt=new Date(m.getFullYear(),m.getMonth(),d),k=ymd(dt),pp=planFor(dt),a=histOn(k,"LBIND").length,b=histOn(k,"LBE").length;
+    cells+=`<button class="cd ${k===ymd(sel)?"sel":""} ${k===ymd(today)?"now":""}" data-d="${k}" aria-label="${d} ${BULAN[m.getMonth()]}: ${pp.LBIND.tema} dan ${pp.LBE.tema}"><b>${d}</b><i>${esc(pp.LBIND.tema)}</i><span class="dots"><u class="${a?"on id":""}"></u><u class="${b?"on en":""}"></u></span></button>`}
+  const st=dayStatus(tab,sel);
+  main(`<h1 class="h1">Jadwal</h1>
+   <p class="lead">Setiap hari berisi satu paket Bahasa Indonesia dan satu paket Bahasa Inggris. Temanya berputar setiap 12 hari.</p>
+   <div class="jd">
+    <section class="cal">
+      <div class="cal-h"><button class="ibtn" id="pm" aria-label="Bulan sebelumnya">‹</button><b>${BULAN[m.getMonth()]} ${m.getFullYear()}</b><button class="ibtn" id="nm" aria-label="Bulan berikutnya">›</button></div>
+      <div class="cg">${["Sen","Sel","Rab","Kam","Jum","Sab","Min"].map(x=>`<span class="wd">${x}</span>`).join("")}${cells}</div>
+      <div class="legend2"><span><i class="id"></i>Indonesia selesai</span><span><i class="en"></i>Inggris selesai</span>${ymd(sel)!==ymd(today)?`<button class="link2" id="td">Hari ini</button>`:""}</div>
+    </section>
+    <section class="day">
+      <div class="day-h"><span class="smallc">${ymd(sel)===ymd(today)?"Hari ini · ":""}${HARI[sel.getDay()]}, ${sel.getDate()} ${BULAN[sel.getMonth()]}</span>
+        <h2>${esc(P.LBIND.tema)} <span class="amp">&</span> ${esc(P.LBE.tema)}</h2></div>
+      <div class="seg" style="max-width:320px" role="group" aria-label="Subtes"><button data-jt="LBIND" aria-pressed="${tab==="LBIND"}">Indonesia · ${esc(P.LBIND.tema)}</button><button data-jt="LBE" aria-pressed="${tab==="LBE"}">Inggris · ${esc(P.LBE.tema)}</button></div>
+      ${slotList(tab,P[tab])}
+      <div class="row" style="justify-content:flex-start;align-items:center">${st.pk?`<button class="btn btn-p" id="op">${st.st==="done"?"Ulangi paket":"Mulai membaca"}</button>`:`<button class="btn btn-p" id="prep">Siapkan paket ini</button>`}<span class="hint" style="margin:0">${st.label}</span></div>
+    </section>
+   </div>`);
+  $$("[data-d]").forEach(b=>b.onclick=()=>{S.cal=b.dataset.d+"T00:00:00";vJadwal()});
+  $$("[data-jt]").forEach(b=>b.onclick=()=>{S.jtab=b.dataset.jt;vJadwal()});
+  $("#pm").onclick=()=>{S.calM=new Date(m.getFullYear(),m.getMonth()-1,1).toISOString();vJadwal()};
+  $("#nm").onclick=()=>{S.calM=new Date(m.getFullYear(),m.getMonth()+1,1).toISOString();vJadwal()};
+  const td=$("#td");if(td)td.onclick=()=>{S.cal=null;S.calM=null;vJadwal()};
+  const pr=$("#prep");if(pr)pr.onclick=()=>openPrep(tab,sel);
+  const op=$("#op");if(op)op.onclick=()=>openPaket(st.pk);
+  bindCopy();
+}
+
+/* ----- Rencana paket (sebelum tempel) ----- */
+function openPrep(sub,date){S.prepFrom=S.page;S.prepSub=sub;S.prepDate=ymd(date);S.prepTopics={};S.page="siapkan";S.view="page";render()}
+function vPrep(){
+  if(!S.prepSub){S.page="beranda";return vHome()}
+  const date=new Date(S.prepDate+"T00:00:00"),sub=S.prepSub,P=planFor(date)[sub],isID=sub==="LBIND",T=S.prepTopics||{};
+  main(`<button class="circ" id="bk" aria-label="Kembali" style="margin-bottom:16px">${I.back}</button>
+   <span class="smallc">Rencana paket · ${HARI[date.getDay()]}, ${date.getDate()} ${BULAN[date.getMonth()]}</span>
+   <h1 class="h1" style="margin-top:2px">${isID?"Bahasa Indonesia":"Bahasa Inggris"} · ${esc(P.tema)}</h1>
+   <p class="lead">Ini topik yang dibawa di setiap slot. Cari artikelnya lewat rubrik, atau ubah topiknya kalau kamu menemukan artikel lain yang lebih bagus.</p>
+   <div class="plan">${P.slots.map(s=>`<section class="pl">
+     <div class="ds-h"><b>${s.id}</b><span>${esc(s.slot)}</span>${s.buat?`<span class="chipx" style="margin-left:auto">Dibuatkan Claude</span>`:""}</div>
+     <input class="pl-in" data-tp="${s.id}" value="${esc(T[s.id]??s.topik)}" aria-label="Topik ${s.id}">
+     ${s.buat?`<p class="hint" style="margin:0">Teksnya akan ditulis Claude sesuai topik ini. Kamu juga bisa menempel teks sendiri nanti.</p>`:`<div class="ds-r">${s.rub.map(([k,r,u])=>`<a class="chipx${u?" direct":""}" href="${u||qlink(k,s.topik)}" target="_blank" rel="noopener">${SRC[k].n} · ${esc(r)}${u?" ↗":" · cari"}</a>`).join("")}</div>${kwChips(s)}
+     <details class="ck"><summary>Cek artikel</summary><ul>${cekList(s.id).map(c=>`<li>${esc(c)}</li>`).join("")}</ul></details>`}
+   </section>`).join("")}</div>
+   <div class="fallback"><b>Tidak ada artikel yang pas?</b> Coba kata kunci yang lebih umum (→), lalu artikel lain dalam tema yang sama, lalu artikel bagus apa pun dari rubrik slot itu. Kalau tetap tidak ada, kosongkan slotnya dan Claude akan membuat teksnya.</div>
+   <div class="row" style="justify-content:flex-start;margin-top:18px"><button class="btn btn-p" id="go2">Lanjut ke tempel artikel</button><button class="btn btn-g" id="bk2">Nanti saja</button></div>`);
+  $$("[data-tp]").forEach(el=>el.oninput=()=>{S.prepTopics=S.prepTopics||{};S.prepTopics[el.dataset.tp]=el.value});
+  const back=()=>{S.prepSub=null;S.page=S.prepFrom||"beranda";render()};
+  $("#bk").onclick=back;$("#bk2").onclick=back;
+  $("#go2").onclick=()=>{const o=S.prepTopics||{};S.prepSub=null;prepPaket(sub,date,o)};
+  bindCopy();
+}
+
+/* ----- halaman Beranda ----- */
+function streak(){
+  let n=0;const d=new Date();
+  if(!histOn(ymd(d)).length)d.setDate(d.getDate()-1);
+  while(histOn(ymd(d)).length){n++;d.setDate(d.getDate()-1)}
+  return n;
+}
+function vHome(){
+  const now=new Date(),P=planFor(now),hr=now.getHours();
+  const salam=hr<11?"Selamat pagi":hr<15?"Selamat siang":hr<18?"Selamat sore":"Selamat malam";
+  const H=Object.values(getHist());
+  const mon=new Date(now);mon.setDate(now.getDate()-((now.getDay()+6)%7));
+  const week=[...Array(7)].map((_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return d});
+  const weekH=H.filter(h=>h.d&&new Date(h.d)>=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()));
+  const agg={};H.forEach(h=>Object.entries(h.by||{}).forEach(([k,v])=>{agg[k]=agg[k]||{b:0,n:0};agg[k].b+=v.b;agg[k].n+=v.n}));
+  const weak=Object.entries(agg).filter(([,v])=>v.n>=2).sort((a,b)=>a[1].b/a[1].n-b[1].b/b[1].n)[0];
+  const card=(sub)=>{const p=P[sub],st=dayStatus(sub,now),isID=sub==="LBIND";
+    return `<article class="today ${isID?"tid":"ten"}">
+      <div class="t-top"><span class="t-sub">${isID?"Bahasa Indonesia":"Bahasa Inggris"}</span><span class="t-st ${st.st}">${st.label}</span></div>
+      <h3>${esc(p.tema)}</h3>
+      <ul class="t-list">${p.slots.slice(0,isID?4:4).map(s=>`<li><b>${s.id}</b>${esc(s.topik)}</li>`).join("")}</ul>
+      <button class="btn t-btn" data-act="${sub}">${st.pk?(st.st==="done"?"Ulangi":"Mulai membaca"):"Siapkan paket"}</button>
+    </article>`};
+  main(`<div class="home">
+    <header class="hh"><div><span class="smallc">${HARI[now.getDay()]}, ${now.getDate()} ${BULAN[now.getMonth()]} ${now.getFullYear()}</span><h1 class="h1">${salam}, Faiq</h1></div>
+      <a class="btn btn-g" href="#jadwal">Lihat jadwal</a></header>
+    ${resumeHTML()}
+    <h2 class="h2">Literasi hari ini</h2>
+    <div class="todays">${card("LBIND")}${card("LBE")}</div>
+    <div class="hgrid">
+      <section class="tile2 wkt"><span class="smallc">Pekan ini</span>
+        <div class="wk">${week.map(d=>{const k=ymd(d),a=histOn(k,"LBIND").length,b=histOn(k,"LBE").length,isT=k===ymd(now);return `<div class="wkd ${isT?"t":""}"><span>${HARI[d.getDay()].slice(0,3)}</span><div class="ring ${a&&b?"full":a||b?"half":""}">${d.getDate()}</div></div>`}).join("")}</div>
+      </section>
+      <section class="tile2 num"><span class="smallc">Soal pekan ini</span><b>${weekH.reduce((a,h)=>a+h.n,0)}</b><span class="hint" style="margin:0">${weekH.length} paket dikumpulkan</span></section>
+      <section class="tile2"><span class="smallc">Fokus latihan</span><p class="focus2">${weak?`<b>${esc(LABELS[weak[0]]||weak[0])}</b> · ${Math.round(weak[1].b/weak[1].n*100)}% benar dari ${weak[1].n} soal`:"Fokusmu akan muncul setelah beberapa paket selesai."}</p><a class="link2" href="#progres" style="margin:0">Buka progres →</a></section>
+    </div>
+  </div>`);
+  const rs=$("#rs");if(rs)rs.onclick=()=>resumeSesi(getSesi());
+  const rsx=$("#rsx");if(rsx)rsx.onclick=()=>{clearSesi();vHome()};
+  $$("[data-act]").forEach(b=>b.onclick=()=>{const st=dayStatus(b.dataset.act,now);if(st.pk)openPaket(st.pk);else openPrep(b.dataset.act,now)});
+}
+
+/* ===== SESI BERJALAN (simpan otomatis) ===== */
+let SESI;const getSesi=()=>SESI!==undefined?SESI:(SESI=LS.get("rb-sesi",null));
+let sesiT=null;
+function pushSesi(o){if(!DB||!UID)return;clearTimeout(sesiT);sesiT=setTimeout(()=>{DB.doc("data/users/"+UID+"/sesi").set(o||{kosong:true,t:Date.now()}).catch(()=>{})},1500)}
+function saveSesi(){
+  if(!S.pk||!(S.view==="read"||S.view==="quiz"))return;
+  const p=pk();if(!p||p._src==="contoh"&&false)return;
+  const o={pk:S.pk,judul:p.judul_paket,view:S.view,r:S.r,q:S.q,ans:S.ans,flag:S.flag,mode:S.mode,el:S.el+(S.view==="quiz"&&S.t0?Math.floor((Date.now()-S.t0)/1000):0),n:p.soal.length,nt:p.teks.length,t:Date.now()};
+  SESI=o;LS.set("rb-sesi",o);pushSesi(o);
+}
+function clearSesi(){SESI=null;LS.set("rb-sesi",null);pushSesi(null)}
+function resumeSesi(o){
+  if(!o||!PAKET.find(p=>p.paket_id===o.pk)){clearSesi();return render()}
+  Object.assign(S,{pk:o.pk,r:o.r||0,q:o.q||0,ans:o.ans||{},flag:o.flag||{},el:o.el||0,mode:o.mode||S.mode,open:{},tab:null,saved:false,view:o.view==="quiz"?"quiz":"read",t0:Date.now()});
+  render();
+}
+function resumeHTML(){
+  const o=getSesi();if(!o||!o.pk||!PAKET.find(p=>p.paket_id===o.pk))return "";
+  const done=Object.keys(o.ans||{}).length;
+  return `<div class="resume"><div class="rs-t"><span class="smallc">Belum selesai</span><b>${esc(o.judul||o.pk)}</b><span>${o.view==="quiz"?`Soal ${o.q+1} dari ${o.n} · ${done} dijawab`:`Membaca teks ${o.r+1} dari ${o.nt}`} · ${fmt(o.el||0)}</span></div><div class="row"><button class="btn btn-g" id="rsx">Buang</button><button class="btn btn-p" id="rs">Lanjutkan</button></div></div>`;
+}
+{const _r=vRead,_q=vQuiz;vRead=function(){_r();saveSesi()};vQuiz=function(){_q();saveSesi()}}
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&(S.view==="read"||S.view==="quiz")){if(S.view==="quiz")keep();saveSesi()}});
+window.addEventListener("pagehide",()=>{if(S.view==="quiz")keep();saveSesi()});
+
+refreshPaket();route();initRuntime();
+</script>
+
+</body>
+</html>
