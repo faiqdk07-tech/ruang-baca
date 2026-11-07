@@ -112,9 +112,11 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-r
 .prose{font-family:var(--read);font-size:var(--fs);line-height:1.68;color:var(--ink)}
 .cols{column-count:2;column-gap:48px}
 .para{margin:0 0 1em;break-inside:avoid-column;position:relative;border-radius:4px;transition:background .3s,box-shadow .3s}
-.pn{display:none!important}
+.prose .para{padding-left:26px}
+button.pdfb{border:0;font-family:inherit}
+button.pdfb:disabled{opacity:.55;cursor:default}
 .para.li p{padding-left:1.1em;text-indent:-1.1em}
-.para .pn{position:absolute;left:-20px;top:.3em;font-family:var(--ui);font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.para .pn{position:absolute;left:0;width:18px;text-align:right;top:.25em;font-family:var(--ui);font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
 .para p{margin:0}
 .para.hl{background:var(--mark);box-shadow:0 0 0 6px var(--mark)}
 .subh{font-family:var(--read);font-size:1.05em;font-weight:600;margin:1.2em 0 .5em;break-after:avoid}
@@ -817,21 +819,119 @@ let DRAFT=null;
 const draft=()=>DRAFT||(DRAFT=LS.get("rb-draft",{sub:"LBIND",judul:"",slots:{}}));
 const setDraft=d=>{DRAFT=d;LS.set("rb-draft",d)};
 
+const isSub=p=>/^##\s/.test(String(p));
+const wc=t=>String(t||"").split(/\s+/).filter(Boolean).length;
+function numbered(paras){let n=0;return paras.map(p=>isSub(p)?{p,o:0}:{p,o:++n})}
+const ORD_ID={pertama:1,kedua:2,ketiga:3,keempat:4,kelima:5,keenam:6,ketujuh:7,kedelapan:8,kesembilan:9,kesepuluh:10};
+const ORD_EN={first:1,second:2,third:3,fourth:4,fifth:5,sixth:6,seventh:7,eighth:8,ninth:9,tenth:10};
+const REF_RE=/\b(paragra(?:f|ph)s?\s+(?:ke-?\s*)?)\[?(\d+)\]?((?:\s*(?:[–—-]|s\.d\.|sampai|hingga|dan|and|or|atau|to|,)\s*(?:paragra(?:f|ph)\s+(?:ke-?\s*)?)?\[?\d+\]?)*)/gi;
+/* ubah "paragraf ketiga" → "paragraf 3", lalu petakan setiap nomor paragraf lewat f */
+function fixRefs(str,f){
+  if(typeof str!=="string")return str;
+  str=str.replace(/\b(paragraf)\s+(?:yang\s+)?(pertama|kedua|ketiga|keempat|kelima|keenam|ketujuh|kedelapan|kesembilan|kesepuluh)\b/gi,(m,w,o)=>w+" "+ORD_ID[o.toLowerCase()])
+     .replace(/\b(?:the\s+)?(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)\s+paragraph\b/gi,(m,o)=>"Paragraph "+ORD_EN[o.toLowerCase()]);
+  return str.replace(REF_RE,(m,a,n,tail)=>a+f(+n)+tail.replace(/\[?(\d+)\]?/g,(x,d)=>f(+d)));
+}
+function refsIn(str){const out=[];if(typeof str!=="string")return out;fixRefs(str,n=>{out.push(n);return n});return out}
+function applyRefs(q,f){
+  const o={...q,stem:fixRefs(q.stem,f),pembahasan:fixRefs(q.pembahasan,f)};
+  if(q.opsi){o.opsi={};Object.entries(q.opsi).forEach(([k,v])=>o.opsi[k]=fixRefs(v,f))}
+  if(q.distraktor){o.distraktor={};Object.entries(q.distraktor).forEach(([k,v])=>o.distraktor[k]=fixRefs(v,f))}
+  return o;
+}
 function splitParas(txt){
+  txt=txt.replace(/\r/g,"").replace(/^(#{1,2} .*)$/gm,"\n$1\n");
   let b=txt.replace(/\r/g,"").split(/\n\s*\n/).map(x=>x.replace(/\s*\n\s*/g," ").trim()).filter(Boolean);
   if(b.length<=1)b=txt.replace(/\r/g,"").split(/\n/).map(x=>x.trim()).filter(Boolean);
   return b;
 }
 
+/* ===== RAPIKAN ARTIKEL ===== */
+function rapikanPrompt(sub,txt,asJson){
+  const en=sub==="LBE",w=wc(txt);
+  const gaya=en?`GAYA BAHASA (bahasa Inggris)
+- Tulis dalam bahasa Inggris yang dipakai majalah populer bermutu (gaya Smithsonian atau National Geographic): jernih, hidup, tidak kaku.
+- Variasikan panjang kalimat. Kalimat pendek boleh berdiri di samping kalimat panjang.
+- Hindari tanda khas tulisan AI: "In today's world", "It is important to note", "delve", "tapestry", "landscape", "crucial", "furthermore" dan "moreover" berulang, deretan tiga kata sifat, pertanyaan retoris yang dibuat-buat, penutup yang menggurui, dan tanda pisah panjang (—) yang berlebihan.`
+:`GAYA BAHASA (bahasa Indonesia)
+- Tulis seperti penulis manusia di media populer bermutu (gaya The Conversation Indonesia atau Tirto): jernih, mengalir, enak dibaca, tetap baku sesuai EYD V dan KBBI.
+- Variasikan panjang kalimat. Kalimat pendek dan panjang boleh berdampingan; jangan semua kalimat berpola sama.
+- Pakai kata penghubung yang wajar dan beragam. Jangan membuka banyak kalimat dengan "Selain itu", "Oleh karena itu", "Dengan demikian", atau "Hal ini".
+- Hindari tanda khas tulisan AI dan terjemahan kaku: "Di era modern ini", "Penting untuk dicatat", "Tidak dapat dimungkiri", "memainkan peran penting", "di mana" dan "yang mana" sebagai penghubung, "daripada" untuk "dari", deretan tiga kata sifat, pertanyaan retoris yang dibuat-buat, penutup yang menggurui, dan tanda pisah panjang (—) yang berlebihan.
+- Istilah asing yang sudah ada padanannya memakai padanan baku; yang belum diserap ditulis miring dengan tanda *…*.`;
+  const out=asJson
+    ?`KELUARAN: balas HANYA satu objek JSON valid: {"judul":"judul artikel","paragraf":["## Subjudul (kalau ada)","paragraf 1","paragraf 2","…"]}. Setiap paragraf satu string. Subjudul diawali "## ".`
+    :`KELUARAN: balas HANYA teks artikel, tanpa komentar, catatan, atau pengantar. Baris pertama berisi "# " diikuti judul artikel. Antarparagraf dipisah satu baris kosong. Subjudul (kalau ada) ditulis pada baris sendiri yang diawali "## ". Jangan memakai poin, nomor, huruf tebal, atau format lain.`;
+  return `Kamu editor senior di majalah populer ${en?"berbahasa Inggris":"berbahasa Indonesia"}. Pembaca naskahmu adalah siswa yang berlatih membaca teks panjang untuk UTBK, jadi teksnya harus utuh, runtut, dan terasa ditulis manusia.
+
+TUGAS
+Artikel di bawah disalin dari PDF atau screenshot, jadi bentuknya sering berantakan: paragraf terpotong di tengah kalimat, kalimat dari kolom berbeda tersambung, sisa kepala atau kaki halaman, nomor halaman, keterangan foto, iklan, ajakan berlangganan, "Baca juga", dan kalimat terjemahan yang kaku atau tidak nyambung dengan kalimat sesudahnya. Susun ulang menjadi artikel yang rapi dan beralur jelas.
+
+YANG HARUS DILAKUKAN
+- Sambungkan kalimat dan paragraf yang terpotong. Buang semua yang bukan isi artikel (kepala/kaki halaman, nomor halaman, tautan, keterangan foto, iklan, navigasi situs, nama penulis yang terselip di tengah).
+- Perbaiki kalimat yang tidak runtut atau tidak nyambung dengan lanjutannya. Boleh mengubah susunan kalimat, mengganti kata penghubung, memecah kalimat yang terlalu panjang, dan menggabungkan kalimat yang terlalu pendek, supaya alur antarkalimat dan antarparagraf jelas.
+- Urutan gagasan mengikuti artikel asli. Pindahkan kalimat hanya kalau letaknya jelas salah akibat proses salin (misalnya dari kolom lain).
+- Setiap paragraf membawa satu gagasan pokok, umumnya 3–7 kalimat. Pecah paragraf yang terlalu panjang dan gabungkan potongan yang terlalu pendek.
+- Pertahankan subjudul asli kalau ada.
+
+YANG TIDAK BOLEH
+- Menambah fakta, angka, nama, contoh, kutipan, atau pendapat yang tidak ada di artikel asli.
+- Membuang informasi isi, meringkas, atau memendekkan artikel. Panjang hasil 90–110% dari aslinya (artikel asli sekitar ${w} kata).
+- Mengubah angka, data, nama orang, nama lembaga, atau tahun.
+- Mengubah sikap, opini, atau kesimpulan penulis.
+- Mengubah isi kutipan langsung dari narasumber; yang boleh hanya ejaan dan tanda bacanya.
+
+${gaya}
+
+CEK SEBELUM MENJAWAB
+- Bandingkan dengan artikel asli: semua informasi masih ada, tidak ada informasi baru.
+- Baca hasilnya dari awal sampai akhir: setiap kalimat tersambung wajar dengan kalimat sesudahnya.
+
+${out}
+
+<artikel_asli>
+${txt}
+</artikel_asli>`;
+}
+function rpBtn(fld,sl){
+  if(sl.id==="A"||sl.id==="T5")return "";
+  const d=draft(),v=d.slots[d.sub+sl.id]||{},auto=!!SAMPLE&&LS.get("rb-addmode","auto")==="auto";
+  return `<button type="button" class="pdfb" data-rp="${fld}" data-k="${sl.id}">${auto?"Rapikan dengan Claude":"Salin prompt rapikan"}</button>${v[fld+"_asli"]?`<button type="button" class="pdfb" data-rb="${fld}" data-k="${sl.id}">Kembalikan teks asli</button>`:""}`;
+}
+async function rapikan(fld,k,btn){
+  const x=draft(),sub=x.sub,key=sub+k,v=x.slots[key]||{},txt=(v[fld]||"").trim();
+  const say=(t,err)=>{const m=$(`[data-pm="${fld}${k}"]`);if(m){m.className="pdfm"+(err?" err":"");m.textContent=t}};
+  if(wc(txt)<60){say("Tempel atau upload artikelnya dulu di kotak ini.",1);return}
+  const auto=!!SAMPLE&&LS.get("rb-addmode","auto")==="auto";
+  if(!auto){
+    const pr=rapikanPrompt(sub,txt,false);
+    try{await navigator.clipboard.writeText(pr);say("Prompt rapikan tersalin. Tempel di chat Claude baru, lalu ganti seluruh isi kotak ini dengan jawabannya.")}
+    catch(e){overlay(`<h3>Prompt rapikan</h3><p>Salin semua isi kotak ini, tempel di chat Claude baru, lalu ganti isi slot dengan jawabannya.</p><textarea class="imp" id="pt" style="min-height:240px" readonly>${esc(pr)}</textarea><div class="row" style="margin-top:10px"><button class="btn btn-p" id="cx">Tutup</button></div>`,()=>{const t=$("#pt");t.focus();t.select();$("#cx").onclick=closeOv})}
+    return;
+  }
+  btn.disabled=true;say("Claude sedang merapikan artikel…");
+  try{
+    const r=await SAMPLE.json(rapikanPrompt(sub,txt,true),{modelTier:"complex",cache:false,onText:({text})=>say(`Merapikan… ${Math.round(text.length/100)/10} rb karakter`)});
+    const ps=(r.paragraf||[]).map(p=>String(p).trim()).filter(Boolean);
+    if(ps.filter(p=>!isSub(p)).length<2)throw new Error("kosong");
+    const y=draft(),s=y.slots[key]=y.slots[key]||{};
+    if(!s[fld+"_asli"])s[fld+"_asli"]=txt;
+    s[fld]=(r.judul?"# "+String(r.judul).trim()+"\n\n":"")+ps.join("\n\n");setDraft(y);vAdd();
+    const w0=wc(txt),w1=wc(ps.join(" ")),n=ps.filter(p=>!isSub(p)).length;
+    say(`Sudah dirapikan: ${n} paragraf, ${w1} kata (asli ${w0}). Baca sekilas sebelum membuat soal.${w1<w0*.85?" Hasilnya jauh lebih pendek; cek apakah ada bagian yang hilang, atau tekan Kembalikan teks asli.":""}`);
+  }catch(e){btn.disabled=false;say(e&&e.code==="rate_limited"?"Batas pemakaian tercapai, coba lagi nanti.":e&&e.code==="not_granted"?"Izin ke Claude ditolak.":"Gagal merapikan. Coba lagi.",1)}
+}
+
 /* ===== PROMPT ===== */
 const SOAL_SHAPE=`{"no":1,"label":"ID-01","level":"LOTS|MOTS|HOTS","format":"biasa|kecuali|blank","stem":"…","opsi":{"A":"…","B":"…","C":"…","D":"…","E":"…"},"kunci":"C","bukti":{"paragraf":2,"kutipan":"…"},"pembahasan":"…","distraktor":{"A":"D2: …","B":"D1: …","D":"D6: …","E":"D4: …"}}`;
 function buildPrompt(sub,sl,input){
-  const head=`Kamu penyusun soal Literasi UTBK-SNBT. Ikuti dua dokumen acuan berikut secara ketat.\n\n<acuan_pola_soal>\n${R02}\n</acuan_pola_soal>\n\n<panduan_teks_buatan>\n${R03}\n</panduan_teks_buatan>\n\n`;
-  const task=`TUGAS\nSubtes: ${sub==="LBIND"?"Literasi dalam Bahasa Indonesia (/LBIND)":"Literasi dalam Bahasa Inggris (/LBE)"}\nSlot: ${sl.id} (${sl.slot}). Ciri wajib slot: ${sl.ciri}.\nJumlah soal: tepat ${sl.n}, dinomori 1 sampai ${sl.n}. Ikuti sebaran soal slot ini di acuan.\nPembahasan selalu dalam bahasa Indonesia.\n`;
+  const head=`PERAN\nKamu anggota tim penyusun soal UTBK-SNBT tingkat nasional. Soalmu dikerjakan ratusan ribu peserta, jadi harus membedakan peserta yang benar-benar membaca dan memahami teks dari peserta yang hanya menebak. Tulis seperti manusia penyusun soal berpengalaman: stem dan opsi meniru gaya bahasa template di acuan (Bagian B4/C3), bukan gaya soal latihan sekolah. Ikuti dua dokumen acuan berikut secara ketat.\n\n<acuan_pola_soal>\n${R02}\n</acuan_pola_soal>\n\n<panduan_teks_buatan>\n${R03}\n</panduan_teks_buatan>\n\n`;
+  const task=`TUGAS\nSubtes: ${sub==="LBIND"?"Literasi dalam Bahasa Indonesia (/LBIND)":"Literasi dalam Bahasa Inggris (/LBE)"}\nSlot: ${sl.id} (${sl.slot}). Ciri wajib slot: ${sl.ciri}.\nJumlah soal: tepat ${sl.n}, dinomori 1 sampai ${sl.n}. Ikuti sebaran soal slot ini di acuan.\nPembahasan selalu dalam bahasa Indonesia.\n\nANTI-TEBAK (wajib, cek setiap soal)\n- Tes tutup teks: kalau seseorang hanya membaca stem dan opsi tanpa teks, kunci TIDAK boleh tampak paling masuk akal, paling lengkap, paling hati-hati, atau paling "aman". Kalau tampak, tulis ulang distraktornya.\n- Panjang dan kerincian kelima opsi setara (selisih sekitar 20% saja). Kunci tidak boleh paling panjang di lebih dari 1 dari 5 soal. Kata hati-hati ("dapat", "cenderung", "may") dan kata absolut tersebar di beberapa opsi, bukan penanda kunci.\n- Distraktor memakai kosakata dan detail yang benar-benar ada di teks (D1, D4, D7, D12), sehingga mencocokkan kata dengan teks tidak menolong. Kunci justru berupa parafrase.\n- Minimal 2 distraktor sangat dekat dengan kunci dan baru gugur setelah kalimat bukti dibaca teliti. Tidak ada opsi konyol, di luar topik, atau yang langsung gugur.\n- Jawaban tidak boleh bisa ditebak dari pengetahuan umum tanpa teks (kecuali label ID-10).\n- Huruf kunci dalam slot ini tidak boleh sama semua dan tidak berurutan (A, B, C, …).\n\nRUJUKAN PARAGRAF (wajib)\n- Teks yang tampil ke peserta memperlihatkan nomor paragraf 1, 2, 3, …. Subjudul tidak bernomor.\n- Setiap kali stem, opsi, pembahasan, atau distraktor menyebut paragraf, tulis ANGKANYA: "paragraf 4", "paragraf 6–8" (bahasa Inggris: "Paragraph 4"). Jangan pakai kata urutan seperti "paragraf ketiga".\n- Nomor yang disebut harus benar-benar ada. Jangan menyebut nomor yang melebihi jumlah paragraf teks. Kalau stem menyebut satu paragraf, "bukti.paragraf" = nomor itu, dan isi paragraf itu memang memuat jawabannya.\n- Untuk teks buatan: tulis teksnya dulu, hitung paragrafnya, baru susun soal. Untuk puisi pakai "bait n"; untuk thread sebut nama penulis postingnya.\n`;
   let body="",shape="";
   if(input.mode==="artikel"){
-    const paras=input.paras.map((p,i)=>`[${i+1}] ${p}`).join("\n\n");
-    body=`MODE: ARTIKEL ASLI (Bagian E). Artikel di bawah sudah dipecah per paragraf bernomor [n].\nJANGAN menyalin ulang artikel. Kembalikan hanya: judul, daftar nomor paragraf yang sebenarnya subjudul, daftar nomor paragraf yang bukan isi (iklan, "Baca juga", keterangan foto), dan daftar koreksi EYD V ${sub==="LBIND"?"(Bagian E2)":"(hanya salah ketik yang jelas)"}. Setiap "semula" harus berupa potongan teks yang PERSIS ada di paragraf itu.\nSemua nomor paragraf di jawabanmu (bukti, koreksi, subjudul, hapus, tabel.setelah) memakai nomor [n] ASLI di bawah.\nKalau ciri wajib slot tidak ada di artikel, ikuti Bagian E4 (tabel "diolah dari teks" hanya dari angka yang ada di artikel, atau ganti tipe soal) dan jelaskan di "slot_terkunci".\nSumber: ${input.sumber||"(tidak disebutkan)"}\n\n<artikel>\n${paras}\n</artikel>\n`;
+    const L=numbered(input.paras),N=L.filter(x=>x.o).length;
+    const paras=L.map(x=>x.o?`[${x.o}] ${x.p}`:`(subjudul, tanpa nomor) ${x.p.replace(/^##\s*/,"")}`).join("\n\n");
+    body=`MODE: ARTIKEL ASLI (Bagian E). Artikel di bawah sudah dipecah per paragraf bernomor [1] sampai [${N}] (${N} paragraf isi). Nomor ini sama dengan nomor yang dilihat peserta, jadi semua rujukan paragraf di stem, opsi, dan pembahasan memakai nomor ini dan tidak boleh lebih dari ${N}.\n${input.judul?"Judul artikel: "+input.judul+"\n":""}${input.rapi?"Artikel ini SUDAH DIRAPIKAN pada tahap sebelumnya atas permintaan pengguna. Jangan ubah teksnya lagi: isi \"koreksi\":[], \"subjudul\":[], dan \"hapus\":[].\n":""}JANGAN menyalin ulang artikel. Kembalikan hanya: judul, daftar nomor paragraf yang sebenarnya subjudul, daftar nomor paragraf yang bukan isi (iklan, "Baca juga", keterangan foto), dan daftar koreksi EYD V ${sub==="LBIND"?"(Bagian E2)":"(hanya salah ketik yang jelas)"}. Setiap "semula" harus berupa potongan teks yang PERSIS ada di paragraf itu.\nSemua nomor paragraf di jawabanmu (bukti, koreksi, subjudul, hapus, tabel.setelah) memakai nomor [n] ASLI di bawah.\nKalau ciri wajib slot tidak ada di artikel, ikuti Bagian E4 (tabel "diolah dari teks" hanya dari angka yang ada di artikel, atau ganti tipe soal) dan jelaskan di "slot_terkunci".\nSumber: ${input.sumber||"(tidak disebutkan)"}\n\n<artikel>\n${paras}\n</artikel>\n`;
     shape=`{"judul":"judul asli artikel","jenis":"artikel","subjudul":[3],"hapus":[9],"koreksi":[{"paragraf":2,"semula":"…","menjadi":"…","alasan":"…"}],"tabel":null${sl.id==="C"?',"grafik":{"tipe":"bar","judul":"… (diolah dari teks)","label":["…"],"nilai":[0],"satuan":"%"}':""},"slot_terkunci":"","soal":[${SOAL_SHAPE}]}`;
     if(sl.id==="D")body+=`\nUntuk teks rumpang: ambil 3–5 paragraf berurutan dari artikel, lalu kembalikan paragraf itu UTUH dengan 8 kata dikosongkan memakai penanda {{1}} sampai {{8}} (urutan nomor soal). Kata aslinya DIHAPUS dan diganti penanda itu, jadi kunci jawaban tidak boleh tetap tertulis di teks. Kata lain tidak boleh berubah. Sebelum menjawab, cek: jumlah penanda {{n}} di paragraf = jumlah soal.\n`;
     if(sl.id==="D")shape=`{"judul":"…","jenis":"cloze","paragraf":["… {{1}} …"],"sumber":"…","slot_terkunci":"","soal":[${SOAL_SHAPE.replace('"bukti":{"paragraf":2','"bukti":{"paragraf":1')}]}`;
@@ -857,20 +957,21 @@ function assembleSlot(sub,sl,input,r){
   let soal=(r.soal||[]).slice(0,sl.n);
   if(input.mode==="artikel"&&sl.id!=="D"){
     const sub2=new Set((r.subjudul||[]).map(Number)),hap=new Set((r.hapus||[]).map(Number));
-    const paras=input.paras.slice(),log=[];
-    (r.koreksi||[]).forEach(k=>{const i=Number(k.paragraf)-1;if(paras[i]==null||!k.semula)return;const ok=paras[i].includes(k.semula);if(ok)paras[i]=paras[i].replace(k.semula,k.menjadi??"");log.push({paragraf:Number(k.paragraf),semula:k.semula,menjadi:k.menjadi,alasan:k.alasan,diterapkan:ok})});
+    const L=numbered(input.paras),paras=L.map(x=>x.p),log=[],idx={};L.forEach((x,i)=>{if(x.o)idx[x.o]=i});
+    (r.koreksi||[]).forEach(k=>{const i=idx[Number(k.paragraf)];if(i==null||paras[i]==null||!k.semula)return;const ok=paras[i].includes(k.semula);if(ok)paras[i]=paras[i].replace(k.semula,k.menjadi??"");log.push({paragraf:Number(k.paragraf),semula:k.semula,menjadi:k.menjadi,alasan:k.alasan,diterapkan:ok})});
     const map={},out=[];let n=0;
-    paras.forEach((p,i)=>{const o=i+1;if(hap.has(o)){log.push({paragraf:o,semula:p.slice(0,80)+(p.length>80?"…":""),menjadi:"(dihapus)",alasan:"bukan bagian isi artikel",diterapkan:true});return}if(sub2.has(o)){out.push("## "+p);return}map[o]=++n;out.push(p)});
+    paras.forEach((p,i)=>{const o=L[i].o;if(!o){out.push("## "+p.replace(/^##\s*/,""));return}if(hap.has(o)){log.push({paragraf:o,semula:p.slice(0,80)+(p.length>80?"…":""),menjadi:"(dihapus)",alasan:"bukan bagian isi artikel",diterapkan:true});return}if(sub2.has(o)){out.push("## "+p);return}map[o]=++n;out.push(p)});
     Object.assign(t,{jenis:"artikel",paragraf:out,asal:"artikel",koreksi:log,sumber:input.sumber?`(Diadaptasi dari ${input.sumber})`:"(Sumber tidak disebutkan)"});
     const remap=v=>map[Number(v)]||Number(v)||1;
     if(r.tabel&&r.tabel.kolom){t.tabel={...r.tabel,setelah:remap(r.tabel.setelah)}}
     if(r.grafik&&r.grafik.label)t.grafik=r.grafik;
-    soal=soal.map(s=>({...s,bukti:{...(s.bukti||{}),paragraf:remap(s.bukti?.paragraf)}}));
+    soal=soal.map(s=>applyRefs({...s,bukti:{...(s.bukti||{}),paragraf:remap(s.bukti?.paragraf)}},remap));
   }else{
     t.jenis=r.jenis||"artikel";
     ["paragraf","bait","posts","passages","tabel","grafik"].forEach(k=>{if(r[k])t[k]=r[k]});
     if(input.mode==="artikel"&&sl.id==="D"){t.asal="artikel";t.sumber=input.sumber?`(Diadaptasi dari ${input.sumber})`:t.sumber}
     if(input.mode==="paired"&&(input.t1||input.t2))t.asal=input.t1&&input.t2?"artikel":"campuran";
+    soal=soal.map(s=>applyRefs(s,n=>n));
   }
   t.slot_terkunci=r.slot_terkunci||"";
   return {teks:t,soal};
@@ -879,6 +980,12 @@ function validSlot(sl,x){
   const s=x.soal;if(!Array.isArray(s)||s.length<sl.n)return `jumlah soal ${s?.length||0} dari ${sl.n}`;
   for(const q of s){if(!q.opsi||["A","B","C","D","E"].some(k=>!q.opsi[k]))return "opsi tidak lengkap";if(!["A","B","C","D","E"].includes(q.kunci))return "kunci tidak valid"}
   const t=x.teks;if(!(t.paragraf?.length||t.bait?.length||t.posts?.length||t.passages?.length))return "teks kosong";
+  const cnt=t.passages?Math.max(...t.passages.map(P=>(P.paragraf||[]).filter(p=>!isSub(p)).length)):t.paragraf?t.paragraf.filter(p=>!isSub(p)).length:t.bait?t.bait.length:t.posts.length;
+  for(const q of s){
+    const txt=[q.stem,q.pembahasan,...Object.values(q.opsi||{}),...Object.values(q.distraktor||{})];
+    const bad=txt.flatMap(refsIn).concat(Number(q.bukti?.paragraf)||[]).find(n=>n<1||n>cnt);
+    if(bad)return `soal ${q.no} menyebut paragraf ${bad}, padahal teksnya hanya ${cnt} paragraf`;
+  }
   return "";
 }
 function finalize(sub,judul,parts){
@@ -891,6 +998,13 @@ function finalize(sub,judul,parts){
     teksA.push(t);
   });
   return {paket_id:id,subtes:sub,judul_paket:judul||"Paket baru",teks:teksA,soal:soalA};
+}
+function cekKualitas(p){
+  const w=[],n=p.soal.length,cnt={};p.soal.forEach(s=>cnt[s.kunci]=(cnt[s.kunci]||0)+1);
+  Object.entries(cnt).forEach(([k,c])=>{if(c/n>.3)w.push(`Kunci ${k} dipakai di ${c} dari ${n} soal (lebih dari 30%).`)});
+  const lg=p.soal.filter(s=>s.format!=="blank"&&s.opsi).filter(s=>{const L=Object.entries(s.opsi).map(([k,v])=>[k,String(v).length]).sort((a,b)=>b[1]-a[1]);return L[0][0]===s.kunci&&L[0][1]>L[1][1]*1.15});
+  if(lg.length>=Math.max(3,Math.ceil(n*.25)))w.push(`Di ${lg.length} soal, kunci jelas jadi opsi terpanjang (nomor ${lg.map(s=>s.no).join(", ")}), jadi mudah ditebak. Pertimbangkan membuat ulang slotnya.`);
+  return w;
 }
 
 /* ===== HALAMAN TAMBAH PAKET ===== */
@@ -983,7 +1097,7 @@ function vAdd(){
   const d=draft(),slots=SLOTS[d.sub],auto=!!SAMPLE,can=auto&&LS.get("rb-addmode","auto")==="auto";
   const st=k=>GEN.status[k]||"";
   main(`<h1 class="h1">Tambah paket</h1>
-   <p class="lead">Tempel artikel utuh di slotnya. Slot yang dikosongkan akan dibuatkan teksnya oleh Claude.</p>
+   <p class="lead">Tempel artikel utuh di slotnya. Kalau hasil salinan PDF berantakan, tekan <b>Rapikan dengan Claude</b> sebelum membuat soal. Slot yang dikosongkan akan dibuatkan teksnya oleh Claude.</p>
    ${can?"":`<p class="warn">Mode chat Claude: setiap slot punya tombol <b>Salin prompt</b>. Tempel prompt itu di chat Claude baru (bukan di dalam Project), lalu tempel jawaban JSON-nya ke kotak di bawah slot. Kalau semua slot sudah terisi, paket langsung jadi.</p>`}
    ${auto?`<div class="fld" style="max-width:420px;margin-bottom:12px"><span>Cara membuat soal</span><div class="seg" style="margin:0" role="group" aria-label="Cara membuat soal"><button data-am="auto" aria-pressed="${can}">Otomatis di sini</button><button data-am="chat" aria-pressed="${!can}">Salin prompt ke chat</button></div></div>`:""}
    <div class="seg" style="max-width:320px" role="group" aria-label="Subtes"><button data-sub="LBIND" aria-pressed="${d.sub==="LBIND"}">Bahasa Indonesia</button><button data-sub="LBE" aria-pressed="${d.sub==="LBE"}">Bahasa Inggris</button></div>
@@ -991,8 +1105,8 @@ function vAdd(){
    <div class="slots">${slots.map(sl=>{const v=d.slots[d.sub+sl.id]||{};return `<section class="slot">
      <div class="slot-h"><b>${sl.id}</b><span>${esc(sl.slot)}</span><em class="st ${st(sl.id).split(" ")[0]}">${esc(stLabel(st(sl.id)))}</em></div>
      ${v.topik?`<div class="slot-tp">Topik: ${esc(v.topik)}</div>`:""}${sl.id==="A"||sl.id==="T5"?"":`<details class="ck"><summary>Cek artikel sebelum menempel</summary><ul>${cekList(sl.id).map(c=>`<li>${esc(c)}</li>`).join("")}</ul></details>`}
-     ${sl.paired?`<textarea data-f="t1" data-k="${sl.id}" placeholder="Text 1: tempel artikel, upload PDF/screenshot, atau kosongkan">${esc(v.t1||"")}</textarea><div class="pdfr"><label class="pdfb"><input type="file" accept="application/pdf,.pdf,image/*" multiple data-pdf="t1" data-k="${sl.id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13M6.5 9h4M6.5 11.5h4"/></svg>PDF / Screenshot</label><span class="pdfm" data-pm="t1${sl.id}"></span></div><textarea data-f="t2" data-k="${sl.id}" placeholder="Text 2: tempel artikel kedua, upload PDF/screenshot, atau kosongkan agar dibuatkan">${esc(v.t2||"")}</textarea><div class="pdfr"><label class="pdfb"><input type="file" accept="application/pdf,.pdf,image/*" multiple data-pdf="t2" data-k="${sl.id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13M6.5 9h4M6.5 11.5h4"/></svg>PDF / Screenshot</label><span class="pdfm" data-pm="t2${sl.id}"></span></div>`
-       :`<textarea data-f="txt" data-k="${sl.id}" placeholder="${sl.id==="T5"?"Tempel puisi/cerpen, atau kosongkan agar dibuatkan":sl.id==="A"?"Tempel utas forum, atau kosongkan agar dibuatkan":"Tempel artikel utuh di sini, upload PDF/screenshot, atau kosongkan agar dibuatkan"}">${esc(v.txt||"")}</textarea><div class="pdfr"><label class="pdfb"><input type="file" accept="application/pdf,.pdf,image/*" multiple data-pdf="txt" data-k="${sl.id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13M6.5 9h4M6.5 11.5h4"/></svg>PDF / Screenshot</label><span class="pdfm" data-pm="txt${sl.id}"></span></div>`}
+     ${sl.paired?`<textarea data-f="t1" data-k="${sl.id}" placeholder="Text 1: tempel artikel, upload PDF/screenshot, atau kosongkan">${esc(v.t1||"")}</textarea><div class="pdfr"><label class="pdfb"><input type="file" accept="application/pdf,.pdf,image/*" multiple data-pdf="t1" data-k="${sl.id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13M6.5 9h4M6.5 11.5h4"/></svg>PDF / Screenshot</label>${rpBtn("t1",sl)}<span class="pdfm" data-pm="t1${sl.id}"></span></div><textarea data-f="t2" data-k="${sl.id}" placeholder="Text 2: tempel artikel kedua, upload PDF/screenshot, atau kosongkan agar dibuatkan">${esc(v.t2||"")}</textarea><div class="pdfr"><label class="pdfb"><input type="file" accept="application/pdf,.pdf,image/*" multiple data-pdf="t2" data-k="${sl.id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13M6.5 9h4M6.5 11.5h4"/></svg>PDF / Screenshot</label>${rpBtn("t2",sl)}<span class="pdfm" data-pm="t2${sl.id}"></span></div>`
+       :`<textarea data-f="txt" data-k="${sl.id}" placeholder="${sl.id==="T5"?"Tempel puisi/cerpen, atau kosongkan agar dibuatkan":sl.id==="A"?"Tempel utas forum, atau kosongkan agar dibuatkan":"Tempel artikel utuh di sini, upload PDF/screenshot, atau kosongkan agar dibuatkan"}">${esc(v.txt||"")}</textarea><div class="pdfr"><label class="pdfb"><input type="file" accept="application/pdf,.pdf,image/*" multiple data-pdf="txt" data-k="${sl.id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13M6.5 9h4M6.5 11.5h4"/></svg>PDF / Screenshot</label>${rpBtn("txt",sl)}<span class="pdfm" data-pm="txt${sl.id}"></span></div>`}
      <div class="slot-f"><input data-f="sumber" data-k="${sl.id}" value="${esc(v.sumber||"")}" placeholder="Sumber: media, tautan"><input data-f="topik" data-k="${sl.id}" value="${esc(v.topik||"")}" placeholder="Topik (kalau dibuatkan)"></div>
      ${can?"":manualHTML(sl)}
    </section>`}).join("")}</div>
@@ -1021,6 +1135,8 @@ function vAdd(){
       say(`${files.length>1?files.length+" file":files[0].name} · ${r.words} kata${r.ocr?" (dibaca dari gambar)":""}. Cek isinya, hapus bagian yang bukan artikel${r.ocr?" dan perbaiki huruf yang salah baca":""}.`);
     }catch(e){msg.className="pdfm err";msg.textContent=e&&e.message==="kosong"?"Teks tidak terbaca. Coba screenshot yang lebih jelas.":e&&e.message==="net"?"Pembaca gagal dimuat. Periksa koneksi internet.":"File tidak bisa dibaca."}
     inp.value=""});
+  $$("[data-rp]").forEach(b=>b.onclick=()=>rapikan(b.dataset.rp,b.dataset.k,b));
+  $$("[data-rb]").forEach(b=>b.onclick=()=>{const x=draft(),s=x.slots[x.sub+b.dataset.k],f=b.dataset.rb;if(!s||!s[f+"_asli"])return;s[f]=s[f+"_asli"];delete s[f+"_asli"];setDraft(x);vAdd()});
   const g=$("#gen");if(g)g.onclick=runGen;
   const sp=$("#stop");if(sp)sp.onclick=()=>GEN.ctl?.abort();
   $("#impb").onclick=async()=>{try{const p=JSON.parse($("#imp").value);if(!p.paket_id||!Array.isArray(p.teks)||!Array.isArray(p.soal))throw 0;const w=await savePaket(p);$("#impm").textContent=w==="penuh"?"Penyimpanan penuh. Hapus paket lama di halaman Progres.":w==="db"?"Tersimpan di rak.":"Tersimpan di browser ini.";$("#imp").value=""}catch(e){$("#impm").textContent="JSON tidak valid atau bukan format paket."}};
@@ -1029,9 +1145,11 @@ function vAdd(){
 }
 function inputFor(sub,sl){
   const v=draft().slots[sub+sl.id]||{};
-  if(sl.paired)return {mode:"paired",t1:(v.t1||"").trim(),t2:(v.t2||"").trim(),topik:v.topik,sumber:v.sumber};
-  const txt=(v.txt||"").trim();
-  if(txt&&!(sl.id==="A"||sl.id==="T5"))return {mode:"artikel",paras:splitParas(txt),sumber:v.sumber};
+  const noTitle=t=>(t||"").trim().replace(/^#\s+[^\n]*\n+/,"").trim();
+  if(sl.paired)return {mode:"paired",t1:noTitle(v.t1),t2:noTitle(v.t2),topik:v.topik,sumber:v.sumber};
+  let txt=(v.txt||"").trim(),judul="",rapi=false;
+  const m=txt.match(/^#\s+([^\n]+)\n/);if(m){judul=m[1].trim();rapi=true;txt=txt.slice(m[0].length).trim()}
+  if(txt&&!(sl.id==="A"||sl.id==="T5"))return {mode:"artikel",paras:splitParas(txt),sumber:v.sumber,judul,rapi};
   if(txt)return {mode:"buatan",topik:"Gunakan teks dari pengguna ini apa adanya (salin utuh tanpa mengubah kata):\n"+txt,sumber:v.sumber};
   return {mode:"buatan",topik:v.topik};
 }
@@ -1042,8 +1160,13 @@ async function runGen(){
   const queue=slots.filter(sl=>!GEN.parts[sub+sl.id]);
   const work=async()=>{while(queue.length&&!GEN.ctl.signal.aborted){const sl=queue.shift();const input=inputFor(sub,sl);
     GEN.status[sl.id]="proses sedang dibuat…";paintStatus();
-    try{const r=await SAMPLE.json(buildPrompt(sub,sl,input),{modelTier:"complex",signal:GEN.ctl.signal,cache:false,onText:({text})=>{GEN.status[sl.id]=`proses menulis… ${Math.round(text.length/100)/10} rb karakter`;paintStatus()}});
-      const part=assembleSlot(sub,sl,input,r),bad=validSlot(sl,part);
+    try{let part=null,bad="";
+      for(let at=0;at<2;at++){
+        const pr=buildPrompt(sub,sl,input)+(bad?`\n\nPERCOBAAN SEBELUMNYA DITOLAK karena ${bad}. Susun ulang seluruh jawaban dan perbaiki hal itu.`:"");
+        const r=await SAMPLE.json(pr,{modelTier:"complex",signal:GEN.ctl.signal,cache:false,onText:({text})=>{GEN.status[sl.id]=`proses ${at?"mengulang":"menulis"}… ${Math.round(text.length/100)/10} rb karakter`;paintStatus()}});
+        part=assembleSlot(sub,sl,input,r);bad=validSlot(sl,part);if(!bad)break;
+        GEN.status[sl.id]="proses mengulang: "+bad;paintStatus();
+      }
       if(bad){GEN.status[sl.id]="gagal "+bad}else{GEN.parts[sub+sl.id]=part;GEN.status[sl.id]="ok selesai"}
     }catch(e){GEN.status[sl.id]=e.code==="cancelled"?"menunggu dihentikan":e.code==="rate_limited"?"gagal batas pemakaian, coba lagi nanti":e.code==="not_granted"?"gagal izin ditolak":"gagal "+(e.code||"error")}
     paintStatus()}};
@@ -1055,7 +1178,8 @@ async function runGen(){
 function stLabel(s){const i=s.indexOf(" ");return i>0&&["ok","gagal","proses"].includes(s.slice(0,i))?s.slice(i+1):s}
 function paintStatus(){$$(".slot").forEach((el,i)=>{const sl=SLOTS[draft().sub][i],em=el.querySelector(".st");if(em&&sl){const s=GEN.status[sl.id]||"";em.textContent=stLabel(s);em.className="st "+s.split(" ")[0]}})}
 function previewHTML(p){
-  return `<div class="prev"><h2 class="h2">Hasil: ${esc(p.judul_paket)}</h2>
+  const qw=cekKualitas(p);
+  return `<div class="prev"><h2 class="h2">Hasil: ${esc(p.judul_paket)}</h2>${qw.length?`<p class="warn">${qw.map(esc).join("<br>")}</p>`:""}
    ${p.teks.map(t=>{const ok=(t.koreksi||[]);return `<div class="pv"><div class="pv-h"><b>${esc(t.id)} · ${esc(t.judul)}</b><span>${t.asal==="artikel"?"artikel asli":t.asal==="campuran"?"campuran":"teks buatan"} · ${p.soal.filter(s=>s.teks_id===t.id).length} soal</span></div>
      ${ok.length?`<details><summary>Koreksi EYD (${ok.length})</summary><table class="kor"><tr><th>¶</th><th>Semula</th><th>Menjadi</th><th>Alasan</th></tr>${ok.map(k=>`<tr class="${k.diterapkan?"":"miss"}"><td>${k.paragraf}</td><td>${esc(k.semula)}</td><td>${esc(k.menjadi)}</td><td>${esc(k.alasan||"")}${k.diterapkan?"":" · tidak ditemukan, tidak diterapkan"}</td></tr>`).join("")}</table></details>`:t.asal==="artikel"?`<p class="hint" style="margin:4px 0 0">Tidak ada koreksi.</p>`:""}
      ${t.slot_terkunci?`<p class="hint" style="margin:4px 0 0">Slot terkunci: ${esc(t.slot_terkunci)}</p>`:""}</div>`}).join("")}
