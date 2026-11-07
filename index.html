@@ -219,6 +219,10 @@ textarea{min-height:110px;resize:vertical;font-family:var(--read);font-size:14.5
 .slot{display:grid;gap:8px;padding:14px;border-radius:18px;background:rgba(120,120,128,.05);box-shadow:inset 0 0 0 1px var(--line)}
 .slot-h{display:flex;gap:10px;align-items:baseline}.slot-h b{font-size:13px}.slot-h span{font-size:13px;color:var(--muted)}
 .st{margin-left:auto;font-style:normal;font-size:12px;color:var(--muted)}.st.ok{color:var(--ok)}.st.gagal{color:var(--no)}.st.proses{color:var(--accent)}
+.pdfr{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:-2px}
+.pdfb{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:999px;background:rgba(120,120,128,.1);color:var(--ink);cursor:pointer}
+.pdfb input{display:none}.pdfb svg{width:15px;height:15px}
+.pdfm{font-size:12px;color:var(--muted)}.pdfm.err{color:var(--no)}
 .slot-f{display:grid;grid-template-columns:1fr 1fr;gap:8px}.slot-f input{font-size:13px;padding:8px 10px}
 .hint{font-size:12.5px;color:var(--muted);margin:6px 0}
 .imp{min-height:90px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
@@ -717,10 +721,42 @@ const R02="# KONTEKS PROYEK \u2014 Pola Soal Literasi UTBK-SNBT 2025\u20132026\n
 const COVERS=["#6E8B74","#6F7F9C","#9A7B5F","#7D6E93","#5F8C8C","#8C6F6F","#7C8A5A"];
 let DB=null,SAMPLE=null,UID=null,OWNER=false,REMOTE=[],DB_READY=false;
 const localPaket=()=>LS.get("rb-paket",[]);
+function fixCloze(p){
+  if(!p||!Array.isArray(p.teks)||!Array.isArray(p.soal))return p;
+  const reEsc=x=>x.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+  p.teks.forEach(t=>{
+    const qs=p.soal.filter(q=>q.teks_id===t.id&&(q.format==="blank"||t.jenis==="cloze")).sort((a,b)=>a.no-b.no);
+    if(!qs.length)return;
+    const paths=[];
+    if(Array.isArray(t.paragraf))paths.push(t.paragraf);
+    if(Array.isArray(t.passages))t.passages.forEach(P=>Array.isArray(P.paragraf)&&paths.push(P.paragraf));
+    if(!paths.length)return;
+    const each=f=>paths.forEach(arr=>arr.forEach((x,i)=>{arr[i]=f(String(x))}));
+    // samakan bentuk penanda lain menjadi {{n}}
+    each(x=>x.replace(/\{\{\s*(\d+)\s*\}\}/g,"{{$1}}").replace(/(?<!\{)\{\s*(\d+)\s*\}(?!\})/g,"{{$1}}").replace(/\[\s*(\d+)\s*\]/g,"{{$1}}").replace(/\(\s*(\d+)\s*\)\s*(?:_{2,}|…+|\.{3,})/g,"{{$1}}").replace(/(?:_{2,}|…+|\.{4,})\s*\(\s*(\d+)\s*\)/g,"{{$1}}"));
+    const found=[];each(x=>{x.replace(/\{\{(\d+)\}\}/g,(m,n)=>{found.push(+n);return m});return x});
+    const nos=qs.map(q=>q.no);
+    if(nos.every(n=>found.includes(n)))return;
+    if(found.length===nos.length){let k=0;const order=found.slice();each(x=>x.replace(/\{\{(\d+)\}\}/g,()=>`{{${nos[k++]}}}`));return}
+    // garis kosong tanpa nomor → isi berurutan
+    const miss=nos.filter(n=>!found.includes(n));let mi=0;
+    each(x=>x.replace(/_{3,}/g,m=>mi<miss.length?`{{${miss[mi++]}}}`:m));
+    // kata kunci masih tertulis di teks → ganti dengan penanda (urut dari depan)
+    const left=nos.filter(n=>!miss.slice(0,mi).includes(n)&&!found.includes(n));
+    let cur={a:0,i:0};
+    left.forEach(n=>{const q=qs.find(z=>z.no===n),w=q&&q.opsi&&q.opsi[q.kunci];if(!w)return;
+      const re=new RegExp("(^|[^\\p{L}\\p{N}])("+reEsc(String(w).trim())+")(?![\\p{L}\\p{N}])","iu");
+      for(let a=cur.a;a<paths.length;a++){const arr=paths[a];let done=false;
+        for(let i=(a===cur.a?cur.i:0);i<arr.length;i++){const x=String(arr[i]);const m=re.exec(x);
+          if(m){arr[i]=x.slice(0,m.index)+m[1]+`{{${n}}}`+x.slice(m.index+m[0].length);cur={a,i};done=true;break}}
+        if(done)break}});
+  });
+  return p;
+}
 function refreshPaket(){
   const seen=new Set(),out=[];
   [...REMOTE.map(p=>({...p,_src:HOSTED?"repo":"db"})),...localPaket().map(p=>({...p,_src:"local"})),...SAMPLES.map(p=>({...p,_src:"contoh"}))].forEach(p=>{if(!seen.has(p.paket_id)){seen.add(p.paket_id);out.push(p)}});
-  PAKET=out;
+  out.forEach(fixCloze);PAKET=out;
 }
 async function savePaket(p){
   p.warna=p.warna||COVERS[Math.abs([...p.paket_id].reduce((a,c)=>a*31+c.charCodeAt(0)|0,7))%COVERS.length];
@@ -797,7 +833,7 @@ function buildPrompt(sub,sl,input){
     const paras=input.paras.map((p,i)=>`[${i+1}] ${p}`).join("\n\n");
     body=`MODE: ARTIKEL ASLI (Bagian E). Artikel di bawah sudah dipecah per paragraf bernomor [n].\nJANGAN menyalin ulang artikel. Kembalikan hanya: judul, daftar nomor paragraf yang sebenarnya subjudul, daftar nomor paragraf yang bukan isi (iklan, "Baca juga", keterangan foto), dan daftar koreksi EYD V ${sub==="LBIND"?"(Bagian E2)":"(hanya salah ketik yang jelas)"}. Setiap "semula" harus berupa potongan teks yang PERSIS ada di paragraf itu.\nSemua nomor paragraf di jawabanmu (bukti, koreksi, subjudul, hapus, tabel.setelah) memakai nomor [n] ASLI di bawah.\nKalau ciri wajib slot tidak ada di artikel, ikuti Bagian E4 (tabel "diolah dari teks" hanya dari angka yang ada di artikel, atau ganti tipe soal) dan jelaskan di "slot_terkunci".\nSumber: ${input.sumber||"(tidak disebutkan)"}\n\n<artikel>\n${paras}\n</artikel>\n`;
     shape=`{"judul":"judul asli artikel","jenis":"artikel","subjudul":[3],"hapus":[9],"koreksi":[{"paragraf":2,"semula":"…","menjadi":"…","alasan":"…"}],"tabel":null${sl.id==="C"?',"grafik":{"tipe":"bar","judul":"… (diolah dari teks)","label":["…"],"nilai":[0],"satuan":"%"}':""},"slot_terkunci":"","soal":[${SOAL_SHAPE}]}`;
-    if(sl.id==="D")body+=`\nUntuk teks rumpang: ambil 3–5 paragraf berurutan dari artikel, lalu kembalikan paragraf itu UTUH dengan 8 kata dikosongkan memakai penanda {{1}} sampai {{8}} (urutan nomor soal). Kata lain tidak boleh berubah.\n`;
+    if(sl.id==="D")body+=`\nUntuk teks rumpang: ambil 3–5 paragraf berurutan dari artikel, lalu kembalikan paragraf itu UTUH dengan 8 kata dikosongkan memakai penanda {{1}} sampai {{8}} (urutan nomor soal). Kata aslinya DIHAPUS dan diganti penanda itu, jadi kunci jawaban tidak boleh tetap tertulis di teks. Kata lain tidak boleh berubah. Sebelum menjawab, cek: jumlah penanda {{n}} di paragraf = jumlah soal.\n`;
     if(sl.id==="D")shape=`{"judul":"…","jenis":"cloze","paragraf":["… {{1}} …"],"sumber":"…","slot_terkunci":"","soal":[${SOAL_SHAPE.replace('"bukti":{"paragraf":2','"bukti":{"paragraf":1')}]}`;
   }else if(input.mode==="paired"){
     body=`MODE: TEKS BERPASANGAN. ${input.t1?"Text 1 berasal dari pengguna (salin UTUH tanpa mengubah kata).":"Text 1 dibuat mengikuti panduan Bagian 5."} ${input.t2?"Text 2 berasal dari pengguna (salin UTUH tanpa mengubah kata).":"Text 2 dibuat mengikuti panduan Bagian 5, melengkapi hubungan dengan Text 1."}\n${input.topik?"Topik: "+input.topik+"\n":""}${input.t1?"<text1>\n"+input.t1+"\n</text1>\n":""}${input.t2?"<text2>\n"+input.t2+"\n</text2>\n":""}Bukti soal memakai {"passage":1|2,"paragraf":n}.\n`;
@@ -809,6 +845,7 @@ function buildPrompt(sub,sl,input){
     shape=`{"judul":"…",${jen},"sumber":"(Teks orisinal untuk latihan)","slot_terkunci":"","soal":[${SOAL_SHAPE}]}`;
     if(sl.id==="A")body+=`Bukti soal thread: "paragraf" = nomor posting (1 = pertanyaan pembuka).\n`;
     if(sl.id==="T5")body+=`Bukti soal puisi: "paragraf" = nomor bait.\n`;
+    if(sl.id==="D")body+=`Teks rumpang: setiap kata yang diujikan WAJIB diganti penanda {{1}}, {{2}}, … di dalam "paragraf" (kata aslinya tidak ditulis). Jumlah penanda = jumlah soal.\n`;
   }
   const out=`\nKELUARAN: balas HANYA satu objek JSON valid berbentuk persis seperti ini (isi sendiri nilainya):\n${shape}\nSebelum menjawab, lakukan cek mandiri dari acuan (kunci terbukti, tidak ada dua jawaban benar, sebaran huruf kunci, distraktor minimal 2 jenis).`;
   return head+task+"\n"+body+out;
@@ -858,6 +895,90 @@ function finalize(sub,judul,parts){
 
 /* ===== HALAMAN TAMBAH PAKET ===== */
 const GEN={running:false,ctl:null,status:{},parts:{},result:null};
+/* ===== PDF → teks ===== */
+let PDFJS=null;
+function loadPdfJs(){if(PDFJS)return PDFJS;const base="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+  PDFJS=new Promise((ok,no)=>{const sc=document.createElement("script");sc.src=base+"pdf.min.js";
+    sc.onload=()=>{const L=window.pdfjsLib;if(!L)return no(new Error("net"));L.GlobalWorkerOptions.workerSrc=base+"pdf.worker.min.js";ok(L)};
+    sc.onerror=()=>{PDFJS=null;no(new Error("net"))};document.head.appendChild(sc)});return PDFJS}
+let TESS=null;
+function loadTess(){if(TESS)return TESS;TESS=new Promise((ok,no)=>{const sc=document.createElement("script");sc.src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+  sc.onload=()=>window.Tesseract?ok(window.Tesseract):no(new Error("net"));sc.onerror=()=>{TESS=null;no(new Error("net"))};document.head.appendChild(sc)});return TESS}
+function ocrClean(txt){
+  const junk=l=>/^[\d\s:.,%|•·\-–—<>«»^~*#@©®™()\[\]{}\/\\]+$/.test(l)||/^(\d{1,2}[.:]\d{2})(\s*(AM|PM))?\b/i.test(l)&&l.length<25||/^(https?:\/\/|www\.)/i.test(l)||/^(advertisement|iklan|baca juga|read more|share|bagikan|subscribe|sign in|log in|masuk|menu)\b/i.test(l)||l.replace(/[^\p{L}]/gu,"").length<3;
+  const paras=[];txt.replace(/\r/g,"").split(/\n\s*\n/).forEach(b=>{
+    const lines=b.split("\n").map(l=>l.replace(/\s+/g," ").trim()).filter(l=>l&&!junk(l));if(!lines.length)return;
+    let cur="";lines.forEach(l=>{if(!cur)cur=l;else if(/\p{L}-$/u.test(cur)&&/^\p{Ll}/u.test(l))cur=cur.slice(0,-1)+l;else cur+=" "+l});
+    paras.push(cur)});
+  // sambung paragraf yang terpotong di batas screenshot (kalimat belum selesai)
+  const out=[];paras.forEach(p=>{const L=out[out.length-1];if(L&&!/[.!?:"”’)…]$/.test(L)&&/^\p{Ll}/u.test(p))out[out.length-1]=L+" "+p;else out.push(p)});
+  return out;
+}
+async function ocrImages(imgs,lang,say){
+  const T=await loadTess();say("Menyiapkan pembaca gambar… (sekali unduh, ±10 MB)");
+  let n=0;const w=await T.createWorker(lang,1,{logger:m=>{if(m.status==="recognizing text")say(`Membaca gambar ${n}/${imgs.length} · ${Math.round(m.progress*100)}%`)}});
+  const parts=[];try{for(const im of imgs){n++;const {data}=await w.recognize(im);parts.push(data.text||"")}}finally{await w.terminate()}
+  // buang baris yang terulang di bagian tumpang tindih antar-screenshot
+  const nk=l=>l.toLowerCase().replace(/[^\p{L}\p{N}]/gu,"");
+  const merged=[];parts.forEach(t=>{const L=t.replace(/\r/g,"").split("\n");
+    if(merged.length){const prev=merged.map(nk).filter(Boolean),nxt=L.map(nk);
+      let cut=0;for(let i=0;i<Math.min(nxt.length,40);i++){const k=nxt[i];if(k.length<12)continue;const at=prev.lastIndexOf(k);if(at>=0&&at>=prev.length-60)cut=i+1}
+      merged.push("",...L.slice(cut))}else merged.push(...L)});
+  let paras=ocrClean(merged.join("\n"));const seen=new Set();paras=paras.filter(p=>{const k=p.toLowerCase().replace(/[^\p{L}\p{N}]/gu,"");if(k.length>30&&seen.has(k))return false;seen.add(k);return true});
+  return paras.join("\n\n");
+}
+async function filesToText(files,lang,say){
+  const out=[];let title="",ocr=false,pend=[];
+  const flush=async()=>{if(pend.length){out.push(await ocrImages(pend,lang,say));ocr=true;pend=[]}};
+  for(const f of files){
+    if(/pdf$/i.test(f.type)||/\.pdf$/i.test(f.name)){
+      say("Membaca PDF…");const r=await pdfToText(f);if(!title)title=r.title;
+      if(r.text.length>=200){await flush();out.push(r.text);continue}
+      // PDF berisi gambar (screenshot/scan): render tiap halaman lalu baca teksnya
+      say("PDF berisi gambar, menyiapkan halaman…");
+      const L=await loadPdfJs(),doc=await L.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise;
+      for(let i=1;i<=doc.numPages;i++){const pg=await doc.getPage(i),vp0=pg.getViewport({scale:1}),sc=Math.min(3,Math.max(1,1800/vp0.width)),vp=pg.getViewport({scale:sc});
+        const c=document.createElement("canvas");c.width=Math.round(vp.width);c.height=Math.round(vp.height);await pg.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;pend.push(c)}
+    }else if(/^image\//.test(f.type)||/\.(png|jpe?g|heic|webp)$/i.test(f.name))pend.push(f);
+  }
+  await flush();
+  const text=out.filter(Boolean).join("\n\n").trim();
+  return {text,title,ocr,words:text.split(/\s+/).filter(Boolean).length};
+}
+async function pdfToText(file){
+  const L=await loadPdfJs();const doc=await L.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+  let title="";try{const m=await doc.getMetadata();title=(m&&m.info&&m.info.Title||"").trim()}catch(e){}
+  const pages=[];
+  for(let n=1;n<=doc.numPages;n++){const pg=await doc.getPage(n),tc=await pg.getTextContent();
+    const rows=[];tc.items.forEach(it=>{if(!it.str||!it.str.trim())return;const y=it.transform[5],x=it.transform[4],h=Math.abs(it.transform[3])||it.height||10;
+      let r=rows.find(r=>Math.abs(r.y-y)<h*.5);if(!r){r={y,h,parts:[]};rows.push(r)}r.parts.push({x,s:it.str,w:it.width||0})});
+    rows.sort((a,b)=>b.y-a.y);
+    pages.push(rows.map(r=>{r.parts.sort((a,b)=>a.x-b.x);let t="",end=null;r.parts.forEach(p=>{if(end!==null&&p.x-end>r.h*.15&&!/\s$/.test(t)&&!/^\s/.test(p.s))t+=" ";t+=p.s;end=p.x+p.w});
+      return {y:r.y,h:r.h,x:r.parts[0].x,t:t.replace(/\s+/g," ").trim(),right:end}}));
+  }
+  // buang kepala/kaki halaman yang berulang, nomor halaman, url, cap waktu
+  const edge=L=>L.filter((l,i)=>i<3||i>=L.length-3).map(l=>l.t.replace(/\d+/g,"#"));
+  const cnt={};pages.forEach(L=>new Set(edge(L)).forEach(t=>cnt[t]=(cnt[t]||0)+1));
+  const junk=(t,i,n)=>((i<3||i>=n-3)&&pages.length>1&&cnt[t.replace(/\d+/g,"#")]>=Math.max(2,Math.ceil(pages.length*.6))&&t.length<160)||/^\d+\s*(\/|of|dari)?\s*\d*$/i.test(t)||(/^https?:\/\//i.test(t)&&t.length<220)||/^\d{1,2}\/\d{1,2}\/\d{2,4},?\s+\d{1,2}[.:]\d{2}/.test(t)||/^(advertisement|iklan|baca juga|read more|share|bagikan)\b/i.test(t);
+  const paras=[];let cur="";
+  pages.forEach(L=>{const lines=L.filter((l,i)=>l.t&&!junk(l.t,i,L.length));
+    const gaps=[];for(let i=1;i<lines.length;i++)gaps.push(lines[i-1].y-lines[i].y);
+    const med=gaps.length?gaps.slice().sort((a,b)=>a-b)[Math.floor(gaps.length/2)]:0;
+    const maxR=Math.max(0,...lines.map(l=>l.right||0));
+    lines.forEach((l,i)=>{
+      if(i>0){const gap=lines[i-1].y-l.y,prev=lines[i-1];
+        const brk=gap>Math.max(med*1.45,prev.h*1.75)||gap<0||(/[.!?:"”’)]$/.test(prev.t)&&(prev.right||0)<maxR*.82)||Math.abs(l.h-prev.h)>prev.h*.25;
+        if(brk){if(cur)paras.push(cur);cur=""}}
+      if(!cur)cur=l.t;else if(/[A-Za-z]-$/.test(cur)&&/^[a-z]/.test(l.t))cur=cur.slice(0,-1)+l.t;else cur+=" "+l.t});
+    // halaman baru: lanjutkan paragraf bila kalimat belum selesai
+    if(cur&&/[.!?"”’)]$/.test(cur)){paras.push(cur);cur=""}
+  });
+  if(cur)paras.push(cur);
+  const out=paras.map(p=>p.trim()).filter(p=>p.length>1);
+  const text=out.join("\n\n");
+  return {text,title,words:text.split(/\s+/).filter(Boolean).length};
+}
+
 function vAdd(){
   const d=draft(),slots=SLOTS[d.sub],auto=!!SAMPLE,can=auto&&LS.get("rb-addmode","auto")==="auto";
   const st=k=>GEN.status[k]||"";
@@ -870,8 +991,8 @@ function vAdd(){
    <div class="slots">${slots.map(sl=>{const v=d.slots[d.sub+sl.id]||{};return `<section class="slot">
      <div class="slot-h"><b>${sl.id}</b><span>${esc(sl.slot)}</span><em class="st ${st(sl.id).split(" ")[0]}">${esc(stLabel(st(sl.id)))}</em></div>
      ${v.topik?`<div class="slot-tp">Topik: ${esc(v.topik)}</div>`:""}${sl.id==="A"||sl.id==="T5"?"":`<details class="ck"><summary>Cek artikel sebelum menempel</summary><ul>${cekList(sl.id).map(c=>`<li>${esc(c)}</li>`).join("")}</ul></details>`}
-     ${sl.paired?`<textarea data-f="t1" data-k="${sl.id}" placeholder="Text 1: tempel artikel, atau kosongkan">${esc(v.t1||"")}</textarea><textarea data-f="t2" data-k="${sl.id}" placeholder="Text 2: tempel artikel kedua, atau kosongkan agar dibuatkan">${esc(v.t2||"")}</textarea>`
-       :`<textarea data-f="txt" data-k="${sl.id}" placeholder="${sl.id==="T5"?"Tempel puisi/cerpen, atau kosongkan agar dibuatkan":sl.id==="A"?"Tempel utas forum, atau kosongkan agar dibuatkan":"Tempel artikel utuh di sini, atau kosongkan agar dibuatkan"}">${esc(v.txt||"")}</textarea>`}
+     ${sl.paired?`<textarea data-f="t1" data-k="${sl.id}" placeholder="Text 1: tempel artikel, upload PDF/screenshot, atau kosongkan">${esc(v.t1||"")}</textarea><div class="pdfr"><label class="pdfb"><input type="file" accept="application/pdf,.pdf,image/*" multiple data-pdf="t1" data-k="${sl.id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13M6.5 9h4M6.5 11.5h4"/></svg>PDF / Screenshot</label><span class="pdfm" data-pm="t1${sl.id}"></span></div><textarea data-f="t2" data-k="${sl.id}" placeholder="Text 2: tempel artikel kedua, upload PDF/screenshot, atau kosongkan agar dibuatkan">${esc(v.t2||"")}</textarea><div class="pdfr"><label class="pdfb"><input type="file" accept="application/pdf,.pdf,image/*" multiple data-pdf="t2" data-k="${sl.id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13M6.5 9h4M6.5 11.5h4"/></svg>PDF / Screenshot</label><span class="pdfm" data-pm="t2${sl.id}"></span></div>`
+       :`<textarea data-f="txt" data-k="${sl.id}" placeholder="${sl.id==="T5"?"Tempel puisi/cerpen, atau kosongkan agar dibuatkan":sl.id==="A"?"Tempel utas forum, atau kosongkan agar dibuatkan":"Tempel artikel utuh di sini, upload PDF/screenshot, atau kosongkan agar dibuatkan"}">${esc(v.txt||"")}</textarea><div class="pdfr"><label class="pdfb"><input type="file" accept="application/pdf,.pdf,image/*" multiple data-pdf="txt" data-k="${sl.id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13M6.5 9h4M6.5 11.5h4"/></svg>PDF / Screenshot</label><span class="pdfm" data-pm="txt${sl.id}"></span></div>`}
      <div class="slot-f"><input data-f="sumber" data-k="${sl.id}" value="${esc(v.sumber||"")}" placeholder="Sumber: media, tautan"><input data-f="topik" data-k="${sl.id}" value="${esc(v.topik||"")}" placeholder="Topik (kalau dibuatkan)"></div>
      ${can?"":manualHTML(sl)}
    </section>`}).join("")}</div>
@@ -889,6 +1010,17 @@ function vAdd(){
   $("#judul").oninput=e=>{const x=draft();x.judul=e.target.value;setDraft(x)};
   $$("[data-am]").forEach(b=>b.onclick=()=>{LS.set("rb-addmode",b.dataset.am);vAdd()});
   $$("[data-f]").forEach(el=>el.oninput=()=>{const x=draft(),key=x.sub+el.dataset.k;x.slots[key]=x.slots[key]||{};x.slots[key][el.dataset.f]=el.value;setDraft(x)});
+  $$("[data-pdf]").forEach(inp=>inp.onchange=async()=>{const files=[...(inp.files||[])];if(!files.length)return;
+    const fld=inp.dataset.pdf,k=inp.dataset.k,msg=$(`[data-pm="${fld}${k}"]`),lang=draft().sub==="LBE"?"eng":"ind";
+    const say=t=>{msg.className="pdfm";msg.textContent=t};say("Membaca file…");
+    try{const r=await filesToText(files,lang,say);if(r.text.length<80)throw new Error("kosong");
+      const x=draft(),key=x.sub+k;x.slots[key]=x.slots[key]||{};x.slots[key][fld]=r.text;
+      if(!x.slots[key].sumber&&r.title)x.slots[key].sumber=r.title;setDraft(x);
+      const ta=$(`textarea[data-f="${fld}"][data-k="${k}"]`);if(ta)ta.value=r.text;
+      const si=$(`input[data-f="sumber"][data-k="${k}"]`);if(si&&!si.value&&r.title)si.value=r.title;
+      say(`${files.length>1?files.length+" file":files[0].name} · ${r.words} kata${r.ocr?" (dibaca dari gambar)":""}. Cek isinya, hapus bagian yang bukan artikel${r.ocr?" dan perbaiki huruf yang salah baca":""}.`);
+    }catch(e){msg.className="pdfm err";msg.textContent=e&&e.message==="kosong"?"Teks tidak terbaca. Coba screenshot yang lebih jelas.":e&&e.message==="net"?"Pembaca gagal dimuat. Periksa koneksi internet.":"File tidak bisa dibaca."}
+    inp.value=""});
   const g=$("#gen");if(g)g.onclick=runGen;
   const sp=$("#stop");if(sp)sp.onclick=()=>GEN.ctl?.abort();
   $("#impb").onclick=async()=>{try{const p=JSON.parse($("#imp").value);if(!p.paket_id||!Array.isArray(p.teks)||!Array.isArray(p.soal))throw 0;const w=await savePaket(p);$("#impm").textContent=w==="penuh"?"Penyimpanan penuh. Hapus paket lama di halaman Progres.":w==="db"?"Tersimpan di rak.":"Tersimpan di browser ini.";$("#imp").value=""}catch(e){$("#impm").textContent="JSON tidak valid atau bukan format paket."}};
