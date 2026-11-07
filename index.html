@@ -338,7 +338,13 @@ a.btn{text-decoration:none;display:inline-block;color:inherit}a.btn-p{color:var(
 
 .kw{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:2px}.kw span{font-size:11px;color:var(--muted);margin-right:2px}.kw i{font-style:normal;font-size:11px;color:var(--muted)}
 .ck summary{font-size:12px;color:var(--muted);margin:0}.ck ul{margin:6px 0 0;padding-left:18px;font-size:12.5px;color:var(--muted);display:grid;gap:3px}
-.slot-tp{font-family:var(--read);font-size:14px}
+.slot-tp{font-family:var(--read);font-size:15px}
+.srcs{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 16px}.srcs span{font-size:12px;color:var(--muted);margin-right:4px}
+.stp{display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px;padding-top:10px;border-top:1px solid var(--line)}
+.stp .sn{width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--paper);font-size:11.5px;font-weight:700;display:grid;place-items:center}
+.stp .sb{display:grid;gap:8px;min-width:0}.stp .sb>b{font-size:13.5px}
+.tx summary{font-size:12.5px;color:var(--muted);cursor:pointer}.tx[open] summary{margin-bottom:8px}.tx textarea{width:100%;box-sizing:border-box}.tx .src1{margin-top:6px;width:100%;box-sizing:border-box}
+.man.in{margin:0;padding:0;background:none}
 .plan{display:grid;gap:12px}
 .pl{display:grid;gap:8px;padding:14px 16px;border-radius:18px;box-shadow:inset 0 0 0 1px var(--line)}
 .pl-in{font-family:var(--read);font-size:16px;padding:8px 10px}
@@ -1195,33 +1201,45 @@ async function pdfToText(file){
   return {text,title,words:text.split(/\s+/).filter(Boolean).length};
 }
 
+const PDF_IC='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13M6.5 9h4M6.5 11.5h4"/></svg>';
+function slotHTML(sl,v,can,stt){
+  const head=`<div class="slot-h"><b>${sl.id}</b><span>${esc(sl.slot)}</span><em class="st ${stt.split(" ")[0]}">${esc(stLabel(stt))}</em></div>
+     ${v.topik?`<div class="slot-tp">${esc(v.topik)}</div>`:""}`;
+  if(PROMPT_ONLY[sl.id])return `<section class="slot">${head}
+     <p class="hint" style="margin:0">${sl.id==="B"?"Text 1, Text 2,":sl.id==="A"?"Utas forum":"Puisi atau prosa"} dan soalnya ditulis Claude sesuai topik. Tidak perlu mencari artikel.</p>
+     ${can?"":manualHTML(sl,"")}</section>`;
+  const n=wc(v.txt);
+  return `<section class="slot">${head}
+     <div class="stp"><span class="sn">1</span><div class="sb"><b>Artikel</b>
+       <div class="pdfr"><label class="pdfb"><input type="file" accept="application/pdf,.pdf,image/*" multiple data-pdf="txt" data-k="${sl.id}">${PDF_IC}PDF / Screenshot</label><span class="pdfm" data-pm="txt${sl.id}">${n?n+" kata":""}</span></div>
+       <details class="tx"${n?"":""}><summary data-sum="${sl.id}">${n?"Lihat atau ubah teks":"Atau tempel teks manual"}</summary><textarea data-f="txt" data-k="${sl.id}" placeholder="Tempel artikel utuh di sini">${esc(v.txt||"")}</textarea>
+         <input class="src1" data-f="sumber" data-k="${sl.id}" value="${esc(v.sumber||"")}" placeholder="Sumber (nama media)"></details>
+     </div></div>
+     <div class="stp"><span class="sn">2</span><div class="sb"><b>Rapikan</b> <span class="hint" style="margin:0">opsional, kalau teksnya berantakan</span>
+       <div class="pdfr">${rpBtn("txt",sl)}</div>${can?"":`<span class="hint" style="margin:0">Jawaban Claude ditempel ke kotak teks di langkah 1 (ganti seluruh isinya).</span>`}</div></div>
+     ${can?"":`<div class="stp"><span class="sn">3</span><div class="sb"><b>Buat soal</b>${manualHTML(sl,"x")}</div></div>`}
+     ${n?"":`<p class="hint" style="margin:0">Tidak menemukan artikel? Lewati langkah 1–2, Claude akan menulis teksnya.</p>`}
+   </section>`;
+}
 function vAdd(){
   const d=draft(),slots=SLOTS[d.sub],auto=!!SAMPLE,can=auto&&LS.get("rb-addmode","auto")==="auto";
   const st=k=>GEN.status[k]||"";
   main(`<h1 class="h1">Tambah paket</h1>
-   <p class="lead">Tempel artikel utuh di slotnya. Kalau hasil salinan PDF berantakan, tekan <b>Rapikan dengan Claude</b> sebelum membuat soal. Slot yang dikosongkan akan dibuatkan teksnya oleh Claude.</p>
-   ${can?"":`<p class="warn">Mode chat Claude: setiap slot punya tombol <b>Salin prompt</b>. Tempel prompt itu di chat Claude baru (bukan di dalam Project), lalu tempel jawaban JSON-nya ke kotak di bawah slot. Kalau semua slot sudah terisi, paket langsung jadi.</p>`}
+   <p class="lead">${can?"Masukkan artikel di slotnya, lalu tekan Buat soal.":"Untuk setiap slot: masukkan artikel, salin prompt ke chat Claude baru, lalu tempel jawaban JSON-nya di slot itu."} Slot tanpa artikel ditulis Claude sesuai topiknya.</p>
    ${auto?`<div class="fld" style="max-width:420px;margin-bottom:12px"><span>Cara membuat soal</span><div class="seg" style="margin:0" role="group" aria-label="Cara membuat soal"><button data-am="auto" aria-pressed="${can}">Otomatis di sini</button><button data-am="chat" aria-pressed="${!can}">Salin prompt ke chat</button></div></div>`:""}
    <div class="seg" style="max-width:320px" role="group" aria-label="Subtes"><button data-sub="LBIND" aria-pressed="${d.sub==="LBIND"}">Bahasa Indonesia</button><button data-sub="LBE" aria-pressed="${d.sub==="LBE"}">Bahasa Inggris</button></div>
    <label class="fld"><span>Nama paket</span><input id="judul" value="${esc(d.judul)}" placeholder="mis. Paket 01"></label>
-   <div class="slots">${slots.map(sl=>{const v=d.slots[d.sub+sl.id]||{};return `<section class="slot">
-     <div class="slot-h"><b>${sl.id}</b><span>${esc(sl.slot)}</span><em class="st ${st(sl.id).split(" ")[0]}">${esc(stLabel(st(sl.id)))}</em></div>
-     ${v.topik?`<div class="slot-tp">Topik: ${esc(v.topik)}</div>`:""}${sl.id==="A"||sl.id==="T5"?"":`<details class="ck"><summary>Cek artikel sebelum menempel</summary><ul>${cekList(sl.id).map(c=>`<li>${esc(c)}</li>`).join("")}</ul></details>`}
-     ${sl.paired?`<textarea data-f="t1" data-k="${sl.id}" placeholder="Text 1: tempel artikel, upload PDF/screenshot, atau kosongkan">${esc(v.t1||"")}</textarea><div class="pdfr"><label class="pdfb"><input type="file" accept="application/pdf,.pdf,image/*" multiple data-pdf="t1" data-k="${sl.id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13M6.5 9h4M6.5 11.5h4"/></svg>PDF / Screenshot</label>${rpBtn("t1",sl)}<span class="pdfm" data-pm="t1${sl.id}"></span></div><textarea data-f="t2" data-k="${sl.id}" placeholder="Text 2: tempel artikel kedua, upload PDF/screenshot, atau kosongkan agar dibuatkan">${esc(v.t2||"")}</textarea><div class="pdfr"><label class="pdfb"><input type="file" accept="application/pdf,.pdf,image/*" multiple data-pdf="t2" data-k="${sl.id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13M6.5 9h4M6.5 11.5h4"/></svg>PDF / Screenshot</label>${rpBtn("t2",sl)}<span class="pdfm" data-pm="t2${sl.id}"></span></div>`
-       :`<textarea data-f="txt" data-k="${sl.id}" placeholder="${sl.id==="T5"?"Tempel puisi/cerpen, atau kosongkan agar dibuatkan":sl.id==="A"?"Tempel utas forum, atau kosongkan agar dibuatkan":"Tempel artikel utuh di sini, upload PDF/screenshot, atau kosongkan agar dibuatkan"}">${esc(v.txt||"")}</textarea><div class="pdfr"><label class="pdfb"><input type="file" accept="application/pdf,.pdf,image/*" multiple data-pdf="txt" data-k="${sl.id}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13M6.5 9h4M6.5 11.5h4"/></svg>PDF / Screenshot</label>${rpBtn("txt",sl)}<span class="pdfm" data-pm="txt${sl.id}"></span></div>`}
-     <div class="slot-f"><input data-f="sumber" data-k="${sl.id}" value="${esc(v.sumber||"")}" placeholder="Sumber: media, tautan"><input data-f="topik" data-k="${sl.id}" value="${esc(v.topik||"")}" placeholder="Topik (kalau dibuatkan)"></div>
-     ${can?"":manualHTML(sl)}
-   </section>`}).join("")}</div>
+   ${siteChips(d.sub)}
+   <div class="slots">${slots.map(sl=>slotHTML(sl,d.slots[d.sub+sl.id]||{},can,st(sl.id))).join("")}</div>
    <div class="row" style="justify-content:flex-start;margin:18px 0 8px;${can?"":"display:none"}">
      <button class="btn btn-p" id="gen" ${!can||GEN.running?"disabled":""}>${GEN.running?"Sedang membuat…":"Buat soal"}</button>
      ${GEN.running?`<button class="btn btn-g" id="stop">Hentikan</button>`:""}
    </div>
    <p class="hint">${can?"Setiap slot dibuat terpisah, biasanya 1–3 menit per slot. Pemakaian dihitung dari akun Claude-mu.":"Tip: tempel prompt setiap slot di chat Claude yang terpisah supaya jawabannya tidak terpotong."}</p>
    ${GEN.result?previewHTML(GEN.result):""}
-   <h2 class="h2" style="margin-top:34px">Impor dari Project</h2>
-   <p class="hint" style="margin-top:0">Tempel blok JSON hasil Project literasi.</p>
-   <textarea id="imp" class="imp" placeholder='{"paket_id":"LBIND-001", …}'></textarea>
-   <div class="row" style="justify-content:flex-start;margin-top:10px"><button class="btn btn-g" id="impb">Simpan JSON ke rak</button><span id="impm" class="hint"></span></div>`);
+   <details class="ck" style="margin-top:28px"><summary>Impor paket JSON utuh</summary>
+   <textarea id="imp" class="imp" style="margin-top:8px" placeholder='{"paket_id":"LBIND-001", …}'></textarea>
+   <div class="row" style="justify-content:flex-start;margin-top:10px"><button class="btn btn-g" id="impb">Simpan JSON ke rak</button><span id="impm" class="hint"></span></div></details>`);
   $$("[data-sub]").forEach(b=>b.onclick=()=>{const x=draft();x.sub=b.dataset.sub;setDraft(x);GEN.status={};GEN.result=null;vAdd()});
   $("#judul").oninput=e=>{const x=draft();x.judul=e.target.value;setDraft(x)};
   $$("[data-am]").forEach(b=>b.onclick=()=>{LS.set("rb-addmode",b.dataset.am);vAdd()});
@@ -1234,6 +1252,7 @@ function vAdd(){
       if(!x.slots[key].sumber&&r.title)x.slots[key].sumber=r.title;setDraft(x);
       const ta=$(`textarea[data-f="${fld}"][data-k="${k}"]`);if(ta)ta.value=r.text;
       const si=$(`input[data-f="sumber"][data-k="${k}"]`);if(si&&!si.value&&r.title)si.value=r.title;
+      const sm=$(`[data-sum="${k}"]`);if(sm)sm.textContent="Lihat atau ubah teks";
       say(`${files.length>1?files.length+" file":files[0].name} · ${r.words} kata${r.ocr?" (dibaca dari gambar)":""}. Cek isinya, hapus bagian yang bukan artikel${r.ocr?" dan perbaiki huruf yang salah baca":""}.`);
     }catch(e){msg.className="pdfm err";msg.textContent=e&&e.message==="kosong"?"Teks tidak terbaca. Coba screenshot yang lebih jelas.":e&&e.message==="net"?"Pembaca gagal dimuat. Periksa koneksi internet.":"File tidak bisa dibaca."}
     inp.value=""});
@@ -1248,7 +1267,8 @@ function vAdd(){
 function inputFor(sub,sl){
   const v=draft().slots[sub+sl.id]||{};
   const noTitle=t=>(t||"").trim().replace(/^#\s+[^\n]*\n+/,"").trim();
-  if(sl.paired)return {mode:"paired",t1:noTitle(v.t1),t2:noTitle(v.t2),topik:v.topik,sumber:v.sumber};
+  if(sl.paired)return {mode:"paired",t1:"",t2:"",topik:v.topik};
+  if(PROMPT_ONLY[sl.id])return {mode:"buatan",topik:v.topik};
   let txt=(v.txt||"").trim(),judul="",rapi=false;
   const m=txt.match(/^#\s+([^\n]+)\n/);if(m){judul=m[1].trim();rapi=true;txt=txt.slice(m[0].length).trim()}
   if(txt&&!(sl.id==="A"||sl.id==="T5"))return {mode:"artikel",paras:splitParas(txt),sumber:v.sumber,judul,rapi};
@@ -1297,21 +1317,13 @@ function bindPreview(){
 }
 
 /* ===== JADWAL BACA ===== */
-const SRC={conv:{n:"The Conversation ID",d:"theconversation.com/id"},tirto:{n:"Tirto",d:"tirto.id"},smith:{n:"Smithsonian",d:"smithsonianmag.com"},natgeo:{n:"National Geographic",d:"nationalgeographic.com"}};
-const TC="https://theconversation.com/id/",TR="https://tirto.id/",SMU="https://www.smithsonianmag.com/category/",NGU="https://www.nationalgeographic.com/";
-const RUB={
- T1:[["conv","Sains + Teknologi",TC+"sains"],["tirto","Kueri",TR+"kueri"],["tirto","TirtoEco",TR+"bisnis-tirto/tirto-eco"],["tirto","Byte",TR+"bisnis-tirto/byte"]],
- T2:[["tirto","Decode",TR+"news/decode"],["conv","Ekonomi",TC+"ekonomi"],["tirto","Insider",TR+"bisnis-tirto/insider"],["tirto","Side Job",TR+"bisnis-tirto/sidejob"]],
- T3:[["tirto","Mozaik",TR+"news/mozaik"],["tirto","Horizon",TR+"news/horizon"],["conv","Pendidikan + Budaya",TC+"pendidikan"],["conv","Politik + Masyarakat",TC+"politik"]],
- T4:[["tirto","Perspektif",TR+"news/perspektif"],["conv","Kesehatan",TC+"kesehatan"],["conv","Lingkungan",TC+"lingkungan-hidup"],["conv","Isu Anak Muda",TC+"isu-anak-muda"],["tirto","Periksa Fakta",TR+"news/periksa-fakta"],["tirto","TirtoEco",TR+"bisnis-tirto/tirto-eco"],["tirto","GWS",TR+"bisnis-tirto/gws"]],
- C:[["smith","Smart News",SMU+"smart-news/"]]
+/* Sumber umum: buka beranda situsnya, lalu pakai ikon pencarian di situs itu */
+const SITES={
+ LBIND:[["Kompas.com","https://www.kompas.com/"],["Tempo","https://www.tempo.co/"],["Tirto","https://tirto.id/"],["The Conversation Indonesia","https://theconversation.com/id"],["National Geographic Indonesia","https://nationalgeographic.grid.id/"],["Kumparan","https://kumparan.com/"]],
+ LBE:[["BBC","https://www.bbc.com/"],["The Conversation","https://theconversation.com/"],["Smithsonian","https://www.smithsonianmag.com/"],["National Geographic","https://www.nationalgeographic.com/"],["Scientific American","https://www.scientificamerican.com/"],["Science News","https://www.sciencenews.org/"]]
 };
-const SM={history:["History",SMU+"history/"],science:["Science & Nature",SMU+"science-nature/"],innovation:["Innovation",SMU+"innovation/"],arts:["Arts & Culture",SMU+"arts-culture/"],travel:["Travel",SMU+"travel/"]};
-const NG={endangered:["Endangered Species","animals/topic/endangered-species"],behaviors:["Animal Behaviors","animals/topic/animal-behaviors"],discoveries:["Animal Discoveries","animals/topic/animal-discoveries"],
- sites:["Historic Sites","history/topic/historic-sites"],archaeology:["Archaeology","history/topic/archaeology"],ancient:["Ancient History","history/topic/ancient-history"],mysteries:["Historical Mysteries","history/topic/historical-mysteries"],religion:["Religion","culture/topic/religion"],holidays:["Holidays & Traditions","culture/topic/holidays-and-traditions"],
- nutrition:["Nutrition & Exercise","health/topic/nutrition-and-exercise"],longevity:["Longevity","health/topic/longevity"],diseases:["Diseases & Conditions","health/topic/diseases-and-conditions"],medical:["Medical Breakthroughs","health/topic/medical-breakthroughs"],
- space:["Space & Astronomy","science/topic/space"],climate:["Climate Change","environment/topic/climate-change"],dino:["Dinosaurs & Fossils","science/topic/dinosaur-and-fossils"],oceans:["Oceans","environment/topic/oceans"],conservation:["Conservation","environment/topic/conservation"],tech:["Tech & Innovation","science/topic/technology-and-innovation"]};
-const smR=(k,sfx)=>["smith",SM[k][0]+(sfx||""),SM[k][1]],ngR=(k,sfx)=>["natgeo",NG[k][0]+(sfx||""),NGU+NG[k][1]];
+const PROMPT_ONLY={T5:1,A:1,B:1};
+const siteChips=sub=>`<div class="srcs"><span>Cari artikel di</span>${SITES[sub].map(([n,u])=>`<a class="chipx" href="${u}" target="_blank" rel="noopener">${esc(n)} ↗</a>`).join("")}</div>`;
 const ID_DAYS=[
  ["Pangan","fermentasi dan mikroba pada makanan","harga beras dan inflasi pangan","sejarah jalur rempah Nusantara","gizi anak dan stunting","sawah dan petani"],
  ["Energi","baterai dan kendaraan listrik","subsidi BBM dan APBN","sejarah minyak bumi di Hindia Belanda","polusi udara di kota besar","anak di kampung tambang"],
@@ -1356,16 +1368,15 @@ function planFor(d){
   const x=ID_DAYS[i],y=EN_DAYS[j],xk=ID_KW[i],yk=EN_KW[j],L=(t,b,tm)=>[t,b,tm.toLowerCase()];
   return {
    LBIND:{tema:x[0],slots:[
-    {id:"T1",slot:"Sains",topik:x[1],rub:RUB.T1,kw:L(x[1],xk[0],x[0])},{id:"T2",slot:"Sosial-ekonomi",topik:x[2],rub:RUB.T2,kw:L(x[2],xk[1],x[0])},
-    {id:"T3",slot:"Sejarah/humaniora",topik:x[3],rub:RUB.T3,kw:L(x[3],xk[2],x[0])},{id:"T4",slot:"Kesehatan/lingkungan/kebijakan",topik:x[4],rub:RUB.T4,kw:L(x[4],xk[3],x[0])},
+    {id:"T1",slot:"Sains",topik:x[1],kw:L(x[1],xk[0],x[0])},{id:"T2",slot:"Sosial-ekonomi",topik:x[2],kw:L(x[2],xk[1],x[0])},
+    {id:"T3",slot:"Sejarah/humaniora",topik:x[3],kw:L(x[3],xk[2],x[0])},{id:"T4",slot:"Kesehatan/lingkungan/kebijakan",topik:x[4],kw:L(x[4],xk[3],x[0])},
     {id:"T5",slot:"Sastra",topik:"puisi atau prosa bertema "+x[5],buat:true}]},
    LBE:{tema:y[0],slots:[
     {id:"A",slot:"Forum thread",topik:y[1],buat:true},
-    {id:"B",slot:"Paired texts",topik:y[2],kw:L(y[2],yk[0],y[0]),rub:[smR(y[3]," (Text 1)"),...y[4].map(k=>ngR(k," (Text 2)"))]},
-    {id:"C",slot:"Text + chart",topik:y[5],kw:L(y[5],yk[1],y[0]),rub:RUB.C,alt:"atau kosongkan agar dibuatkan dengan data ilustrasi"},
-    {id:"D",slot:"Cloze",topik:y[6],kw:L(y[6],yk[2],y[0]),rub:[ngR(y[4][0]),smR(y[3])]}]}};
+    {id:"B",slot:"Paired texts",topik:y[2],buat:true},
+    {id:"C",slot:"Text + chart",topik:y[5],kw:L(y[5],yk[1],y[0])},
+    {id:"D",slot:"Cloze",topik:y[6],kw:L(y[6],yk[2],y[0])}]}};
 }
-const qlink=(k,kw)=>`https://www.google.com/search?q=${encodeURIComponent("site:"+SRC[k].d+" "+kw)}`;
 const histOn=(key,sub)=>Object.values(getHist()).filter(h=>h.d&&ymd(new Date(h.d))===key&&(!sub||h.sub===sub));
 const paketOn=(key,sub)=>PAKET.filter(p=>p.tanggal===key&&p.subtes===sub);
 function prepPaket(sub,date,over){
@@ -1385,7 +1396,7 @@ function dayStatus(sub,date){
 /* ----- halaman Jadwal ----- */
 function slotList(sub,P){
   return `<ol class="dslots">${P.slots.map(s=>`<li><div class="ds-h"><b>${s.id}</b><span>${esc(s.slot)}</span></div><div class="ds-t">${esc(s.topik)}</div>
-    ${s.buat?`<div class="ds-r"><span class="chipx">Dibuatkan Claude</span></div>`:`<div class="ds-r">${s.rub.map(([k,r,u])=>`<a class="chipx${u?" direct":""}" href="${u||qlink(k,s.topik)}" target="_blank" rel="noopener">${SRC[k].n} · ${esc(r)}${u?" ↗":" · cari"}</a>`).join("")}${s.alt?`<span class="hint" style="margin:0">${esc(s.alt)}</span>`:""}</div>${kwChips(s)}`}</li>`).join("")}</ol>`;
+    ${s.buat?`<div class="ds-r"><span class="chipx">Dibuatkan Claude</span></div>`:kwChips(s)}</li>`).join("")}</ol>${siteChips(sub)}`;
 }
 function vJadwal(){
   const today=new Date(),sel=S.cal?new Date(S.cal):today,m=S.calM?new Date(S.calM):new Date(sel.getFullYear(),sel.getMonth(),1);
@@ -1429,14 +1440,14 @@ function vPrep(){
   main(`<button class="circ" id="bk" aria-label="Kembali" style="margin-bottom:16px">${I.back}</button>
    <span class="smallc">Rencana paket · ${HARI[date.getDay()]}, ${date.getDate()} ${BULAN[date.getMonth()]}</span>
    <h1 class="h1" style="margin-top:2px">${isID?"Bahasa Indonesia":"Bahasa Inggris"} · ${esc(P.tema)}</h1>
-   <p class="lead">Ini topik yang dibawa di setiap slot. Cari artikelnya lewat rubrik, atau ubah topiknya kalau kamu menemukan artikel lain yang lebih bagus.</p>
+   <p class="lead">Cari artikel sesuai topik setiap slot. Buka salah satu situs, ketuk ikon pencariannya, lalu tempel kata kunci. Slot bertanda <b>Dibuatkan Claude</b> tidak perlu dicari.</p>
+   ${siteChips(sub)}
    <div class="plan">${P.slots.map(s=>`<section class="pl">
      <div class="ds-h"><b>${s.id}</b><span>${esc(s.slot)}</span>${s.buat?`<span class="chipx" style="margin-left:auto">Dibuatkan Claude</span>`:""}</div>
      <input class="pl-in" data-tp="${s.id}" value="${esc(T[s.id]??s.topik)}" aria-label="Topik ${s.id}">
-     ${s.buat?`<p class="hint" style="margin:0">Teksnya akan ditulis Claude sesuai topik ini. Kamu juga bisa menempel teks sendiri nanti.</p>`:`<div class="ds-r">${s.rub.map(([k,r,u])=>`<a class="chipx${u?" direct":""}" href="${u||qlink(k,s.topik)}" target="_blank" rel="noopener">${SRC[k].n} · ${esc(r)}${u?" ↗":" · cari"}</a>`).join("")}</div>${kwChips(s)}
-     <details class="ck"><summary>Cek artikel</summary><ul>${cekList(s.id).map(c=>`<li>${esc(c)}</li>`).join("")}</ul></details>`}
+     ${s.buat?`<p class="hint" style="margin:0">${s.id==="B"?"Text 1 dan Text 2":s.id==="A"?"Utas forum":"Puisi atau prosa"} beserta soalnya ditulis Claude sesuai topik ini.</p>`:kwChips(s)}
    </section>`).join("")}</div>
-   <div class="fallback"><b>Tidak ada artikel yang pas?</b> Coba kata kunci yang lebih umum (→), lalu artikel lain dalam tema yang sama, lalu artikel bagus apa pun dari rubrik slot itu. Kalau tetap tidak ada, kosongkan slotnya dan Claude akan membuat teksnya.</div>
+   <div class="fallback"><b>Tidak ada artikel yang pas?</b> Coba kata kunci yang lebih umum (→). Kalau tetap tidak ada, biarkan slotnya kosong dan Claude akan menulis teksnya.</div>
    <div class="row" style="justify-content:flex-start;margin-top:18px"><button class="btn btn-p" id="go2">Lanjut ke tempel artikel</button><button class="btn btn-g" id="bk2">Nanti saja</button></div>`);
   $$("[data-tp]").forEach(el=>el.oninput=()=>{S.prepTopics=S.prepTopics||{};S.prepTopics[el.dataset.tp]=el.value});
   const back=()=>{S.prepSub=null;S.page=S.prepFrom||"beranda";render()};
@@ -1514,11 +1525,10 @@ window.addEventListener("pagehide",()=>{if(S.view==="quiz")keep();saveSesi()});
 
 /* ===== MODE CHAT CLAUDE (salin prompt, tempel jawaban) ===== */
 GEN.inputs={};
-function manualHTML(sl){
+function manualHTML(sl,inStep){
   const d=draft(),ok=!!GEN.parts[d.sub+sl.id];
-  return `<div class="man"><div class="man-h"><b>Lewat chat Claude</b><span>Salin prompt → tempel di chat Claude → tempel jawabannya di sini</span></div>
-   <div class="row" style="justify-content:flex-start;align-items:center"><button class="btn btn-p" data-cp="${sl.id}">Salin prompt ${sl.id}</button>${ok?`<span class="hint" style="margin:0;color:var(--ok)">Jawaban ${sl.id} sudah masuk.</span>`:""}</div>
-   ${ok?"":`<textarea class="imp" data-ans="${sl.id}" placeholder="Tempel jawaban JSON dari Claude untuk slot ${sl.id}"></textarea><span class="hint" data-msg="${sl.id}" style="margin:0"></span>`}</div>`;
+  return `<div class="man${inStep?" in":""}"><div class="row" style="justify-content:flex-start;align-items:center;margin:0"><button class="btn btn-p" data-cp="${sl.id}">Salin prompt soal</button>${ok?`<span class="hint" style="margin:0;color:var(--ok)">✓ Jawaban sudah masuk</span>`:""}</div>
+   ${ok?"":`<textarea class="imp" data-ans="${sl.id}" placeholder="Tempel jawaban JSON dari Claude di sini"></textarea><span class="hint" data-msg="${sl.id}" style="margin:0"></span>`}</div>`;
 }
 function parseLoose(t){t=String(t).trim();const f=t.match(/```(?:json)?\s*([\s\S]*?)```/);if(f)t=f[1].trim();else{const a=t.indexOf("{"),b=t.lastIndexOf("}");if(a>=0&&b>a)t=t.slice(a,b+1)}return JSON.parse(t)}
 function bindManual(){
