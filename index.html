@@ -424,6 +424,10 @@ a.btn{text-decoration:none;display:inline-block;color:inherit}a.btn-p{color:var(
 .hrow .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px;background:#5E8A6C}
 .hrow .dot.en{background:#6C7FAE}
 .h2 .cnt{font-family:var(--ui);font-size:12px;font-weight:600;color:var(--muted);margin-left:6px}
+.lsearch{position:relative;display:block;margin:0 0 22px}
+.lsearch svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--muted);pointer-events:none}
+.lsearch input{padding-left:36px}
+.lnone{color:var(--muted);font-size:14px;padding:12px 0}
 .sim{margin-top:28px;border-top:1px solid var(--line);padding-top:14px}
 .sim summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--muted)}
 .sim[open] summary{margin-bottom:6px}
@@ -819,18 +823,28 @@ function vLatih(){
   const td=ymd(new Date()),L=latihItems().sort((a,b)=>b.ts-a.ts);
   const siap=L.filter(x=>!x.h&&x.hari<td).sort((a,b)=>a.ts-b.ts),besok=L.filter(x=>!x.h&&x.hari===td),done=L.filter(x=>x.h).sort((a,b)=>b.h.d-a.h.d);
   const meta=x=>`<span class="dot ${x.p.subtes==="LBE"?"en":""}"></span>${esc(x.p.judul_paket)} · dibaca ${relHari(x.ts)}${x.ipk?" · ada ide pokok":""}`;
+  const qOf=x=>(x.t.judul+" "+x.p.judul_paket+" "+(x.t.slot||"")+" "+(x.p.subtes==="LBE"?"inggris english":"indonesia")).toLowerCase();
   const H=getHist(),sims=PAKET.filter(p=>p._src!=="contoh").concat(PAKET.filter(p=>p._src==="contoh"));
   main(`<h1 class="h1">Latihan</h1>
    <p class="lead">Soal untuk teks yang sudah kamu baca. Satu teks, beberapa soal, tanpa timer. Teks yang dibaca hari ini bisa dilatih mulai besok.${isSoalDay(new Date())?"":" Hari ini hari baca, jadi latihan boleh dilewati."}</p>
-   <h2 class="h2">Siap dilatih<span class="cnt">${siap.length}</span></h2>
-   ${siap.length?`<div class="hist">${siap.map(x=>`<button class="hrow" data-lt="${esc(x.vid)}"><span class="hj">${esc(x.t.judul)}<small>${meta(x)}</small></span><span class="hs">${x.n} soal</span><span class="chev">›</span></button>`).join("")}</div>`
-     :`<p class="empty">${besok.length?"Belum ada untuk hari ini. Teks yang kamu baca hari ini bisa dilatih besok.":"Belum ada. Baca teks dulu di Perpustakaan, lalu kembali besok."}</p>`}
-   ${besok.length?`<h2 class="h2">Bisa dilatih besok<span class="cnt">${besok.length}</span></h2><div class="hist">${besok.map(x=>`<button class="hrow" disabled><span class="hj">${esc(x.t.judul)}<small>${meta(x)}</small></span><span class="hs">${x.n} soal</span><span></span></button>`).join("")}</div>`:""}
-   ${done.length?`<h2 class="h2">Sudah dilatih<span class="cnt">${done.length}</span></h2><div class="hist">${done.map(x=>{const sl=x.h.n-x.h.b;return `<button class="hrow" data-dn="${esc(x.vid)}"><span class="hj">${esc(x.t.judul)}<small><span class="dot ${x.p.subtes==="LBE"?"en":""}"></span>${esc(x.p.judul_paket)} · dilatih ${relHari(x.h.d)}</small></span><span class="hs">${x.h.b}/${x.h.n}${sl?`<em>${sl} salah</em>`:`<em class="ok">semua tepat</em>`}</span><span class="chev">›</span></button>`}).join("")}</div>`:""}
-   <details class="sim"><summary>Simulasi ujian: satu paket penuh dengan timer</summary>
+   ${L.length?`<label class="lsearch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="lq" type="search" placeholder="Cari judul teks atau paket" value="${esc(S.lq||"")}" aria-label="Cari latihan"></label><p class="lnone" id="lnone" hidden>Tidak ada judul yang cocok.</p>`:""}
+   <section class="lsec"><h2 class="h2">Siap dilatih<span class="cnt">${siap.length}</span></h2>
+   ${siap.length?`<div class="hist">${siap.map(x=>`<button class="hrow" data-q="${esc(qOf(x))}" data-lt="${esc(x.vid)}"><span class="hj">${esc(x.t.judul)}<small>${meta(x)}</small></span><span class="hs">${x.n} soal</span><span class="chev">›</span></button>`).join("")}</div>`
+     :`<p class="empty">${besok.length?"Belum ada untuk hari ini. Teks yang kamu baca hari ini bisa dilatih besok.":"Belum ada. Baca teks dulu di Perpustakaan, lalu kembali besok."}</p>`}</section>
+   ${besok.length?`<section class="lsec"><h2 class="h2">Bisa dilatih besok<span class="cnt">${besok.length}</span></h2><div class="hist">${besok.map(x=>`<button class="hrow" data-q="${esc(qOf(x))}" disabled><span class="hj">${esc(x.t.judul)}<small>${meta(x)}</small></span><span class="hs">${x.n} soal</span><span></span></button>`).join("")}</div></section>`:""}
+   ${done.length?`<section class="lsec"><h2 class="h2">Sudah dilatih<span class="cnt">${done.length}</span></h2><div class="hist">${done.map(x=>{const sl=x.h.n-x.h.b;return `<button class="hrow" data-q="${esc(qOf(x))}" data-dn="${esc(x.vid)}"><span class="hj">${esc(x.t.judul)}<small><span class="dot ${x.p.subtes==="LBE"?"en":""}"></span>${esc(x.p.judul_paket)} · dilatih ${relHari(x.h.d)}</small></span><span class="hs">${x.h.b}/${x.h.n}${sl?`<em>${sl} salah</em>`:`<em class="ok">semua tepat</em>`}</span><span class="chev">›</span></button>`}).join("")}</div></section>`:""}
+   <details class="sim lsec"><summary>Simulasi ujian: satu paket penuh dengan timer</summary>
      <p class="hint" style="margin:4px 0 6px">Untuk latihan menjelang UTBK. Semua teks dan soal satu paket dikerjakan sekaligus, dengan timer.</p>
-     <div class="hist">${sims.map(p=>{const h=H[p.paket_id];return `<button class="hrow" data-sim="${esc(p.paket_id)}"><span class="hj">${esc(p.judul_paket)}<small><span class="dot ${p.subtes==="LBE"?"en":""}"></span>${p.teks.length} teks · ${p.soal.length} soal</small></span><span class="hs">${h?`${h.b}/${h.n}`:""}</span><span class="chev">›</span></button>`}).join("")}</div>
+     <div class="hist">${sims.map(p=>{const h=H[p.paket_id];return `<button class="hrow" data-q="${esc((p.judul_paket+" "+p.teks.map(t=>t.judul).join(" ")+" "+(p.subtes==="LBE"?"inggris english":"indonesia")).toLowerCase())}" data-sim="${esc(p.paket_id)}"><span class="hj">${esc(p.judul_paket)}<small><span class="dot ${p.subtes==="LBE"?"en":""}"></span>${p.teks.length} teks · ${p.soal.length} soal</small></span><span class="hs">${h?`${h.b}/${h.n}`:""}</span><span class="chev">›</span></button>`}).join("")}</div>
    </details>`);
+  const filt=()=>{const q=(S.lq||"").trim().toLowerCase(),ws=q.split(/\s+/).filter(Boolean);let any=0;
+    $$(".lsec").forEach(sec=>{const rows=[...sec.querySelectorAll("[data-q]")];let vis=0;
+      rows.forEach(r=>{const ok=ws.every(w=>r.dataset.q.includes(w));r.hidden=!ok;if(ok)vis++});
+      const emp=sec.querySelector(".empty");if(emp)emp.hidden=!!q;
+      sec.hidden=!!q&&!vis;if(sec.tagName==="DETAILS"&&q&&vis)sec.open=true;
+      const c=sec.querySelector(".cnt");if(c)c.textContent=q?`${vis} dari ${rows.length}`:rows.length;any+=vis});
+    const no=$("#lnone");if(no)no.hidden=!q||!!any};
+  const lq=$("#lq");if(lq){lq.oninput=()=>{S.lq=lq.value;filt()};filt()}
   $$("[data-lt]").forEach(b=>b.onclick=()=>sheetLatih(b.dataset.lt));
   $$("[data-dn]").forEach(b=>b.onclick=()=>{const id=b.dataset.dn,p=findPk(id);overlay(`<h3>${esc(p.judul_paket)}</h3><p>${esc(p.induk_judul)}</p><div class="sh-act"><button class="btn btn-p" id="rv">Tinjau jawaban</button><button class="btn btn-g" id="ag">Latih lagi</button></div><div class="sh-sub"><button id="cx">Tutup</button></div>`,()=>{$("#cx").onclick=closeOv;$("#rv").onclick=()=>{closeOv();openReview(id,"latihan")};$("#ag").onclick=()=>{closeOv();sheetLatih(id)}})});
   $$("[data-sim]").forEach(b=>b.onclick=()=>{const p=findPk(b.dataset.sim);overlay(`<h3>Simulasi ujian</h3><p>${esc(p.judul_paket)} · ${p.teks.length} teks · ${p.soal.length} soal, dengan timer. Pembahasan muncul setelah dikumpulkan.</p><div class="sh-act"><button class="btn btn-p" id="go">Mulai simulasi</button></div><div class="sh-sub"><button id="cx">Batal</button></div>`,()=>{$("#cx").onclick=closeOv;$("#go").onclick=()=>{closeOv();startLatih(p.paket_id,"ujian")}})});
