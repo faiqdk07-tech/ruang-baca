@@ -414,6 +414,20 @@ a.btn{text-decoration:none;display:inline-block;color:inherit}a.btn-p{color:var(
 .ipk-v{font-size:13px;color:var(--muted);margin:-4px 0 14px;padding:8px 12px;border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 10px 10px 0}
 .ipk-v b{color:var(--ink)}
 @media (max-width:600px){.shelf{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 14px}}
+/* perpustakaan & latihan */
+.toc li.tl{padding:0;display:block}
+.tocb{width:100%;display:flex;justify-content:space-between;gap:12px;padding:10px 0;text-align:left}
+.tocb span:first-child{font-family:var(--read);font-size:15px}
+.tocb span:last-child{color:var(--muted);font-size:12px;white-space:nowrap}
+.tocb:hover span:first-child{color:var(--accent)}
+.hrow:disabled{opacity:.5;cursor:default}
+.hrow .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px;background:#5E8A6C}
+.hrow .dot.en{background:#6C7FAE}
+.h2 .cnt{font-family:var(--ui);font-size:12px;font-weight:600;color:var(--muted);margin-left:6px}
+.sim{margin-top:28px;border-top:1px solid var(--line);padding-top:14px}
+.sim summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--muted)}
+.sim[open] summary{margin-bottom:6px}
+.home .lt-ban{margin-bottom:4px}
 /* hari baca (kartu Beranda) */
 .t-note{font-size:13px;line-height:1.45;margin:0;opacity:.9;position:relative;z-index:1}
 .t-rd{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:13px;position:relative;z-index:1}
@@ -546,10 +560,18 @@ const S={page:"beranda",view:"page",pk:null,r:0,q:0,ans:{},flag:{},tab:null,p:"s
 document.documentElement.classList.toggle("just",LS.get("rb-just",true));const fs=LS.get("rb-fs",null);if(fs)document.documentElement.style.setProperty("--fs",fs+"px");
 const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const pk=()=>PAKET.find(p=>p.paket_id===S.pk);
+const pk=()=>findPk(S.pk);
+/* latihan per teks: paket "virtual" berisi satu teks + soalnya, id = paket_id~teks_id */
+const VSEP="~";
+function findPk(id){if(!id)return null;id=String(id);const i=id.indexOf(VSEP);if(i<0)return PAKET.find(x=>x.paket_id===id)||null;
+  const p=PAKET.find(x=>x.paket_id===id.slice(0,i));if(!p)return null;const tid=id.slice(i+1),t=p.teks.find(x=>x.id===tid);if(!t)return null;
+  return {...p,paket_id:id,induk:p.paket_id,induk_judul:p.judul_paket,judul_paket:t.judul,teks:[t],soal:p.soal.filter(q=>q.teks_id===tid)}}
+const rkey=(p,t)=>(p.induk||p.paket_id)+"/"+t.id;
+function markRead(key){const R=LS.get("rb-dibaca",{});R[key]=Date.now();LS.set("rb-dibaca",R);const F=LS.get("rb-baca1",{});if(!F[key]){F[key]=Date.now();LS.set("rb-baca1",F)}}
 const fmt=s=>String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");
 let tick=null;
-const PAGES=[["beranda","Beranda",I.home],["jadwal","Jadwal",I.cal],["pustaka","Perpustakaan",I.lib],["progres","Progres",I.pr],["tambah","Tambah paket",I.add]];
+I.lt='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h11"/></svg>';
+const PAGES=[["beranda","Beranda",I.home],["jadwal","Jadwal",I.cal],["pustaka","Perpustakaan",I.lib],["latihan","Latihan",I.lt],["progres","Progres",I.pr],["tambah","Tambah paket",I.add]];
 
 function navHTML(tb){return PAGES.filter(p=>!(tb&&p[0]==="tambah")).map(([k,l,ic])=>`<a href="#${k}" aria-current="${S.view==="page"&&S.page===k?"page":"false"}">${ic}<span>${tb&&l.startsWith("Bahasa ")?l.slice(7):tb&&k==="pustaka"?"Pustaka":l}</span></a>`).join("")}
 function route(){let h=location.hash.replace("#","");if(h==="indonesia"||h==="inggris"){S.libsub=h==="indonesia"?"LBIND":"LBE";h="pustaka"}if(PAGES.some(p=>p[0]===h)){S.page=h;S.view="page"}render()}
@@ -560,7 +582,7 @@ function render(){
   $("#frame").classList.toggle("full",S.view!=="page");
   $("#main").style.padding=["read","quiz","lib","review"].includes(S.view)?"0":"";
   $("#nav").innerHTML=navHTML();$("#tabbar").innerHTML=navHTML(true);
-  ({page:()=>({progres:vProg,pustaka:vLibList,tambah:vAdd,jadwal:vJadwal,beranda:vHome,siapkan:vPrep})[S.page](),read:vRead,quiz:vQuiz,result:vResult,lib:vLib,review:vReview})[S.view]();
+  ({page:()=>({progres:vProg,pustaka:vLibList,latihan:vLatih,tambah:vAdd,jadwal:vJadwal,beranda:vHome,siapkan:vPrep})[S.page](),read:vRead,quiz:vQuiz,result:vResult,lib:vLib,review:vReview})[S.view]();
 }
 const main=h=>{$("#main").innerHTML=h;$("#main").scrollTop=0};
 
@@ -600,22 +622,19 @@ function sheetEdit(p){
     }})
 }
 function sheetPaket(id){
-  const p=PAKET.find(x=>x.paket_id===id);
-  const draw=()=>overlay(`<h3>${esc(p.judul_paket)}</h3><p>${p.teks.length} teks · ${p.soal.length} soal</p>
-   <ul class="toc">${p.teks.map(t=>`<li><span>${esc(t.judul)}</span><span>${esc(t.slot)}</span></li>`).join("")}</ul>
-   <div class="seg" role="group" aria-label="Mode"><button data-m="ujian" aria-pressed="${S.mode==="ujian"}">Ujian</button><button data-m="latihan" aria-pressed="${S.mode==="latihan"}">Latihan</button></div>
-   <div class="sh-act">${getSesi()?.pk===id?`<button class="btn btn-p" id="rsm">Lanjutkan</button><button class="btn btn-g" id="go">Mulai ulang</button>`:`<button class="btn btn-p" id="go">Mulai membaca</button>`}</div>
-   <div class="sh-sub"><button id="lb">Baca saja</button><button id="exp">Unduh JSON</button>${p._src==="db"||p._src==="local"?`<button id="ed">Edit paket</button><button id="del" class="red">Hapus paket</button>`:""}<button id="cx">Tutup</button></div>`,
-   ()=>{$$("[data-m]").forEach(b=>b.onclick=()=>{S.mode=b.dataset.m;LS.set("rb-mode",S.mode);draw()});
-     $("#exp").onclick=()=>exportPaket(p,$("#exp"));
-     $("#lb").onclick=()=>{closeOv();openLib(id,0,S.page)};
-     const rsm=$("#rsm");if(rsm)rsm.onclick=()=>{closeOv();resumeSesi(getSesi())};
+  const p=PAKET.find(x=>x.paket_id===id);if(!p)return;
+  const R=LS.get("rb-dibaca",{}),rd=i=>!!R[p.paket_id+"/"+p.teks[i].id],first=p.teks.findIndex((t,i)=>!rd(i)),back=S.page;
+  overlay(`<h3>${esc(p.judul_paket)}</h3><p>${p.teks.length} teks${first<0?" · semua sudah dibaca":""}. Soalnya menunggu di halaman Latihan, mulai besok setelah teks dibaca.</p>
+   <ul class="toc">${p.teks.map((t,i)=>`<li class="tl"><button class="tocb" data-t="${i}"><span>${esc(t.judul)}</span><span>${rd(i)?"✓ dibaca":esc(t.slot||"")}</span></button></li>`).join("")}</ul>
+   <div class="sh-act"><button class="btn btn-p" id="go">${first<0?"Baca lagi":first>0?"Lanjut membaca":"Mulai membaca"}</button></div>
+   <div class="sh-sub"><button id="exp">Unduh JSON</button>${p._src==="db"||p._src==="local"?`<button id="ed">Edit paket</button><button id="del" class="red">Hapus paket</button>`:""}<button id="cx">Tutup</button></div>`,
+   ()=>{$("#exp").onclick=()=>exportPaket(p,$("#exp"));
+     $("#go").onclick=()=>{closeOv();openLib(id,first<0?0:first,back)};
+     $$("[data-t]").forEach(b=>b.onclick=()=>{closeOv();openLib(id,+b.dataset.t,back)});
      const ed=$("#ed");if(ed)ed.onclick=()=>sheetEdit(p);
      const dl=$("#del");if(dl)dl.onclick=()=>overlay(`<h3>Hapus paket ini?</h3><p>${esc(p.judul_paket)} akan hilang dari rak.</p><div class="row"><button class="btn btn-g" id="cx">Batal</button><button class="btn btn-p" id="yes" style="background:var(--no)">Hapus</button></div>`,()=>{$("#cx").onclick=closeOv;$("#yes").onclick=async()=>{await deletePaket(p);closeOv();render()}});
-     $("#cx").onclick=closeOv;$("#go").onclick=()=>{closeOv();clearSesi();Object.assign(S,{pk:id,r:0,q:0,ans:{},flag:{},open:{},el:0,tab:null,p:"soal",saved:false,view:"read"});render()}});
-  draw();
+     $("#cx").onclick=closeOv});
 }
-
 /* ===== TEKS ===== */
 function tblHTML(T){return `<div class="tbl"><div class="cap">${esc(T.judul||"")}</div><table><thead><tr>${(T.kolom||[]).map(k=>`<th>${esc(k)}</th>`).join("")}</tr></thead><tbody>${(T.baris||[]).map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`}
 function chartHTML(G){const v=(G.nilai||[]).map(Number),mx=Math.max(...v,1);return `<div class="chart"><div class="cap">${esc(G.judul||"")}</div>${(G.label||[]).map((l,i)=>`<div class="bar-r"><span>${esc(l)}</span><div class="bar-t"><b style="width:${Math.max(2,v[i]/mx*100)}%"></b></div><em>${esc(v[i])}${esc(G.satuan||"")}</em></div>`).join("")}</div>`}
@@ -644,7 +663,7 @@ function teks(t,o={}){
 /* ===== BACA (Kindle) ===== */
 function vRead(){
   const p=pk(),t=p.teks[S.r],last=S.r===p.teks.length-1,fc=LS.get("rb-focus",false),key=p.paket_id+"/"+t.id;
-  const RD=LS.get("rb-dibaca",{});RD[key]=Date.now();LS.set("rb-dibaca",RD);
+  markRead(key);
   const rk=LS.get("rb-ringkas",{})[key]||"";
   main(`<div class="rd${fc?" focus":""}" lang="${p.subtes==="LBE"?"en":"id"}">
     <div class="rd-top"><button class="circ" id="bk" aria-label="Kembali">${I.back}</button>
@@ -677,7 +696,7 @@ function vQuiz(){
     <div class="qz" data-p="${S.p}">
       <section class="left" id="left">
         <div class="ttabs"><span class="lb">Teks</span>${p.teks.map((x,i)=>`<button data-tab="${x.id}" aria-pressed="${x.id===t.id}" aria-label="Teks ${i+1}">${i+1}</button>`).join("")}</div>
-        <h2 class="ttl">${esc(t.judul)}</h2>${(()=>{const r=LS.get("rb-ringkas",{})[p.paket_id+"/"+t.id];return r?`<p class="ipk-v"><b>Ide pokokmu:</b> ${esc(r)}</p>`:""})()}
+        <h2 class="ttl">${esc(t.judul)}</h2>${(()=>{const r=LS.get("rb-ringkas",{})[rkey(p,t)];return r?`<p class="ipk-v"><b>Ide pokokmu:</b> ${esc(r)}</p>`:""})()}
         ${teks(t,{hl:show&&t.id===s.teks_id?s.bukti:null,blank:s.format==="blank"?s.no:null})}
       </section>
       <section class="right">
@@ -723,9 +742,9 @@ function sheetSize(vr){vr=vr||"fs";const q=vr==="fsq",key=q?"rb-fsq":"rb-fs",lo=
 function vResult(){
   const p=pk(),n=p.soal.length,b=p.soal.filter(s=>S.ans[s.no]===s.kunci).length;
   const by={};p.soal.forEach(s=>{(by[s.label]=by[s.label]||{n:0,b:0}).n++;if(S.ans[s.no]===s.kunci)by[s.label].b++});
-  if(!S.saved){const H=getHist();H[p.paket_id]={sub:p.subtes,judul:p.judul_paket,b,n,by,t:S.el,d:Date.now(),ans:{...S.ans},flag:{...S.flag}};setHist(H);clearSesi();S.saved=true}
+  if(!S.saved){const H=getHist();H[p.paket_id]={sub:p.subtes,judul:p.judul_paket,pj:p.induk_judul||null,b,n,by,t:S.el,d:Date.now(),ans:{...S.ans},flag:{...S.flag}};setHist(H);clearSesi();S.saved=true}
   main(`<button class="circ" id="bk" aria-label="Kembali" style="margin-bottom:18px">${I.back}</button>
-   <div class="lead" style="margin:0">${esc(p.judul_paket)} · ${fmt(S.el)}</div>
+   <div class="lead" style="margin:0">${esc(p.judul_paket)}${S.mode==="ujian"?" · "+fmt(S.el):""}</div>
    <h2 class="h2">Per tipe soal</h2>
    <div class="skills">${Object.entries(by).sort((x,y)=>x[1].b/x[1].n-y[1].b/y[1].n).map(([k,v])=>{const r=Math.round(v.b/v.n*100);return `<div class="sk"><span>${esc(LABELS[k])}</span><div class="meter"><b class="${r<60?"low":""}" style="width:${r}%"></b></div><em>${r}%</em></div>`}).join("")}</div>
    <div class="score"><span class="n" style="font-size:40px">${b}/${n}</span><span class="s">jawaban tepat</span></div>
@@ -733,9 +752,9 @@ function vResult(){
    <div>${p.soal.map((s,i)=>{const a=S.ans[s.no],st=!a?"sk":a===s.kunci?"ok":"no";return `<div class="rv"><button class="rv-h" data-o="${s.no}"><span class="n">${i+1}</span><span class="t">${esc(s.stem)}</span><span class="tag ${st}">${st==="ok"?"Tepat":st==="no"?"Keliru":"Kosong"}</span></button>${S.open[s.no]?`<div class="rv-b">${note(s,a||"-")}</div>`:""}</div>`}).join("")}</div>
    <div class="row" style="margin-top:22px;justify-content:flex-start"><button class="btn btn-p" id="hm">Selesai</button>${b<n?`<button class="btn btn-g" id="tj">Tinjau yang salah</button>`:""}<button class="btn btn-g" id="ag">Ulangi</button></div>`);
   const tj=$("#tj");if(tj)tj.onclick=()=>openReview(p.paket_id,"result");
-  const home=()=>{S.view="page";S.page="pustaka";S.libsub=p.subtes;render()};
+  const home=()=>{S.view="page";S.page="latihan";render()};
   $("#bk").onclick=home;$("#hm").onclick=home;
-  $("#ag").onclick=()=>{Object.assign(S,{r:0,q:0,ans:{},flag:{},open:{},el:0,saved:false,view:"read"});render()};
+  $("#ag").onclick=()=>{Object.assign(S,{r:0,q:0,ans:{},flag:{},open:{},el:0,tab:null,saved:false,view:"quiz",t0:Date.now()});render()};
   $$("[data-o]").forEach(x=>x.onclick=()=>{S.open[x.dataset.o]=!S.open[x.dataset.o];const st=$("#main").scrollTop;vResult();$("#main").scrollTop=st});
 }
 
@@ -755,17 +774,19 @@ function openLib(id,r,back){S.lib={pk:id,r:r||0,back:back||"pustaka"};S.view="li
 function vLib(){
   const L=S.lib,p=PAKET.find(x=>x.paket_id===L.pk);if(!p){S.view="page";S.page="pustaka";return render()}
   const t=p.teks[L.r],n=p.teks.length,fc=LS.get("rb-focus",false);
-  const R=LS.get("rb-dibaca",{});R[p.paket_id+"/"+t.id]=Date.now();LS.set("rb-dibaca",R);
+  const key=p.paket_id+"/"+t.id,rk=LS.get("rb-ringkas",{})[key]||"";markRead(key);
   main(`<div class="rd${fc?" focus":""}" lang="${p.subtes==="LBE"?"en":"id"}">
     <div class="rd-top"><button class="circ" id="bk" aria-label="Kembali">${I.back}</button>
       <div class="crumb"><span>${esc(p.judul_paket)}</span><i>\\</i><b>${esc(t.judul)}</b></div>
-      <div class="pg"><button class="mb${fc?" on":""}" id="fm" aria-pressed="${fc}">${I.id}<span>${fc?"Keluar mode baca":"Mode baca"}</span></button><button class="ibtn" id="aa" aria-label="Tampilan teks">${I.aa}</button>${L.r+1} / ${n}</div></div>
-    <div class="rd-body">${fc?`<h1 class="fttl">${esc(t.judul)}</h1>`:""}${teks(t,{cols:!fc})}</div>
+      <div class="pg"><button class="mb${fc?" on":""}" id="fm" aria-pressed="${fc}">${I.id}<span>${fc?"Keluar mode baca":"Mode baca"}</span></button><button class="ibtn" id="aa" aria-label="Tampilan teks">${I.aa}</button>${fc?"":`${L.r+1} / ${n}`}</div></div>
+    <div class="rd-body">${fc?`<h1 class="fttl">${esc(t.judul)}</h1>`:""}${teks(t,{cols:!fc})}
+      <label class="ipk"><span>Ide pokok teks ini, dengan kata-katamu sendiri</span><textarea id="ipk" placeholder="1–2 kalimat saja. Boleh dilewati.">${esc(rk)}</textarea></label></div>
     <div class="strip">
       <button class="btn btn-g" id="pvr" ${L.r===0?"disabled":""}>Sebelumnya</button>
       ${fc?`<span style="flex:1"></span>`:`<div class="thumbs">${p.teks.map((x,i)=>`<button class="th" data-r="${i}" aria-current="${i===L.r}" aria-label="Teks ${i+1}">${i+1}</button>`).join("")}</div>`}
       <button class="btn btn-p" id="nx">${L.r===n-1?"Selesai membaca":"Teks berikutnya"}</button>
     </div></div>`);
+  $("#ipk").oninput=e=>{const R=LS.get("rb-ringkas",{}),v=e.target.value.trim();if(v)R[key]=v;else delete R[key];LS.set("rb-ringkas",R)};
   const out=()=>{S.view="page";S.page=L.back||"pustaka";render()};
   $("#bk").onclick=out;$("#aa").onclick=()=>sheetSize("fs");
   $("#fm").onclick=()=>{LS.set("rb-focus",!fc);vLib()};
@@ -774,17 +795,58 @@ function vLib(){
   $("#nx").onclick=()=>{if(L.r===n-1)out();else{L.r++;vLib();const B=$(".rd-body");if(B)B.scrollTop=0}};
 }
 
+/* ===== LATIHAN (soal untuk teks yang sudah dibaca) ===== */
+function latihItems(){
+  const R=LS.get("rb-dibaca",{}),F=LS.get("rb-baca1",{}),H=getHist(),out=[];
+  new Set([...Object.keys(R),...Object.keys(F)]).forEach(k=>{if(k.startsWith("luar/"))return;const j=k.lastIndexOf("/");if(j<1)return;
+    const pid=k.slice(0,j),tid=k.slice(j+1),p=PAKET.find(x=>x.paket_id===pid);if(!p)return;const t=p.teks.find(x=>x.id===tid);if(!t)return;
+    const n=p.soal.filter(q=>q.teks_id===tid).length;if(!n)return;const vid=pid+VSEP+tid,ts=F[k]||R[k];
+    out.push({vid,p,t,n,ts,hari:ymd(new Date(ts)),h:H[vid],ipk:!!LS.get("rb-ringkas",{})[k]})});
+  return out;
+}
+const latihSiap=()=>{const td=ymd(new Date());return latihItems().filter(x=>!x.h&&x.hari<td)};
+const relHari=ts=>{const a=new Date(ts),b=new Date(),d=Math.round((new Date(b.getFullYear(),b.getMonth(),b.getDate())-new Date(a.getFullYear(),a.getMonth(),a.getDate()))/864e5);return d<=0?"hari ini":d===1?"kemarin":d+" hari lalu"};
+function startLatih(id,mode){clearSesi();Object.assign(S,{pk:id,r:0,q:0,ans:{},flag:{},open:{},el:0,tab:null,p:"soal",saved:false,mode,view:"quiz",page:"latihan",t0:Date.now()});render()}
+function sheetLatih(vid){
+  const p=findPk(vid);if(!p)return;const t=p.teks[0],k=rkey(p,t),rk=LS.get("rb-ringkas",{})[k]||"";
+  overlay(`<span class="smallc">${esc(p.induk_judul)}</span><h3 style="margin-top:2px">${esc(t.judul)}</h3><p>${p.soal.length} soal · tanpa timer · pembahasan muncul setelah kamu menjawab.</p>
+   ${rk?`<p class="ipk-v" style="margin:0 0 14px"><b>Ide pokokmu waktu membaca:</b> ${esc(rk)}</p>`
+     :`<label class="ipk" style="margin:0 0 14px"><span>Sebelum mulai, coba tulis ide pokoknya dari ingatan</span><textarea id="ipk2" placeholder="1–2 kalimat. Boleh dilewati."></textarea></label>`}
+   <div class="sh-act"><button class="btn btn-p" id="go">Mulai latihan</button></div><div class="sh-sub"><button id="cx">Nanti saja</button></div>`,
+  ()=>{$("#cx").onclick=closeOv;$("#go").onclick=()=>{const x=$("#ipk2");if(x&&x.value.trim()){const R=LS.get("rb-ringkas",{});R[k]=x.value.trim();LS.set("rb-ringkas",R)}closeOv();startLatih(vid,"latihan")}});
+}
+function vLatih(){
+  const td=ymd(new Date()),L=latihItems().sort((a,b)=>b.ts-a.ts);
+  const siap=L.filter(x=>!x.h&&x.hari<td).sort((a,b)=>a.ts-b.ts),besok=L.filter(x=>!x.h&&x.hari===td),done=L.filter(x=>x.h).sort((a,b)=>b.h.d-a.h.d);
+  const meta=x=>`<span class="dot ${x.p.subtes==="LBE"?"en":""}"></span>${esc(x.p.judul_paket)} · dibaca ${relHari(x.ts)}${x.ipk?" · ada ide pokok":""}`;
+  const H=getHist(),sims=PAKET.filter(p=>p._src!=="contoh").concat(PAKET.filter(p=>p._src==="contoh"));
+  main(`<h1 class="h1">Latihan</h1>
+   <p class="lead">Soal untuk teks yang sudah kamu baca. Satu teks, beberapa soal, tanpa timer. Teks yang dibaca hari ini bisa dilatih mulai besok.${isSoalDay(new Date())?"":" Hari ini hari baca, jadi latihan boleh dilewati."}</p>
+   <h2 class="h2">Siap dilatih<span class="cnt">${siap.length}</span></h2>
+   ${siap.length?`<div class="hist">${siap.map(x=>`<button class="hrow" data-lt="${esc(x.vid)}"><span class="hj">${esc(x.t.judul)}<small>${meta(x)}</small></span><span class="hs">${x.n} soal</span><span class="chev">›</span></button>`).join("")}</div>`
+     :`<p class="empty">${besok.length?"Belum ada untuk hari ini. Teks yang kamu baca hari ini bisa dilatih besok.":"Belum ada. Baca teks dulu di Perpustakaan, lalu kembali besok."}</p>`}
+   ${besok.length?`<h2 class="h2">Bisa dilatih besok<span class="cnt">${besok.length}</span></h2><div class="hist">${besok.map(x=>`<button class="hrow" disabled><span class="hj">${esc(x.t.judul)}<small>${meta(x)}</small></span><span class="hs">${x.n} soal</span><span></span></button>`).join("")}</div>`:""}
+   ${done.length?`<h2 class="h2">Sudah dilatih<span class="cnt">${done.length}</span></h2><div class="hist">${done.map(x=>{const sl=x.h.n-x.h.b;return `<button class="hrow" data-dn="${esc(x.vid)}"><span class="hj">${esc(x.t.judul)}<small><span class="dot ${x.p.subtes==="LBE"?"en":""}"></span>${esc(x.p.judul_paket)} · dilatih ${relHari(x.h.d)}</small></span><span class="hs">${x.h.b}/${x.h.n}${sl?`<em>${sl} salah</em>`:`<em class="ok">semua tepat</em>`}</span><span class="chev">›</span></button>`}).join("")}</div>`:""}
+   <details class="sim"><summary>Simulasi ujian: satu paket penuh dengan timer</summary>
+     <p class="hint" style="margin:4px 0 6px">Untuk latihan menjelang UTBK. Semua teks dan soal satu paket dikerjakan sekaligus, dengan timer.</p>
+     <div class="hist">${sims.map(p=>{const h=H[p.paket_id];return `<button class="hrow" data-sim="${esc(p.paket_id)}"><span class="hj">${esc(p.judul_paket)}<small><span class="dot ${p.subtes==="LBE"?"en":""}"></span>${p.teks.length} teks · ${p.soal.length} soal</small></span><span class="hs">${h?`${h.b}/${h.n}`:""}</span><span class="chev">›</span></button>`}).join("")}</div>
+   </details>`);
+  $$("[data-lt]").forEach(b=>b.onclick=()=>sheetLatih(b.dataset.lt));
+  $$("[data-dn]").forEach(b=>b.onclick=()=>{const id=b.dataset.dn,p=findPk(id);overlay(`<h3>${esc(p.judul_paket)}</h3><p>${esc(p.induk_judul)}</p><div class="sh-act"><button class="btn btn-p" id="rv">Tinjau jawaban</button><button class="btn btn-g" id="ag">Latih lagi</button></div><div class="sh-sub"><button id="cx">Tutup</button></div>`,()=>{$("#cx").onclick=closeOv;$("#rv").onclick=()=>{closeOv();openReview(id,"latihan")};$("#ag").onclick=()=>{closeOv();sheetLatih(id)}})});
+  $$("[data-sim]").forEach(b=>b.onclick=()=>{const p=findPk(b.dataset.sim);overlay(`<h3>Simulasi ujian</h3><p>${esc(p.judul_paket)} · ${p.teks.length} teks · ${p.soal.length} soal, dengan timer. Pembahasan muncul setelah dikumpulkan.</p><div class="sh-act"><button class="btn btn-p" id="go">Mulai simulasi</button></div><div class="sh-sub"><button id="cx">Batal</button></div>`,()=>{$("#cx").onclick=closeOv;$("#go").onclick=()=>{closeOv();startLatih(p.paket_id,"ujian")}})});
+}
+
 /* ===== TINJAU SOAL YANG SALAH ===== */
 function openReview(id,back){
-  const h=getHist()[id],p=PAKET.find(x=>x.paket_id===id);
+  const h=getHist()[id],p=findPk(id);
   if(!p)return overlay(`<h3>Paket tidak ditemukan</h3><p>Paket ini sudah dihapus atau diganti, jadi soalnya tidak bisa ditinjau.</p><div class="row"><button class="btn btn-p" id="cx">Tutup</button></div>`,()=>$("#cx").onclick=closeOv);
-  if(!h||!h.ans)return overlay(`<h3>Jawaban belum tersimpan</h3><p>${esc(p.judul_paket)} dikumpulkan sebelum fitur tinjau ada, jadi jawabanmu waktu itu tidak tercatat. Mulai sekarang, setiap paket yang kamu kumpulkan bisa ditinjau dari sini.</p><div class="row"><button class="btn btn-g" id="cx">Tutup</button><button class="btn btn-p" id="lb">Baca teksnya</button></div>`,()=>{$("#cx").onclick=closeOv;$("#lb").onclick=()=>{closeOv();openLib(id,0,"progres")}});
+  if(!h||!h.ans)return overlay(`<h3>Jawaban belum tersimpan</h3><p>${esc(p.judul_paket)} dikumpulkan sebelum fitur tinjau ada, jadi jawabanmu waktu itu tidak tercatat. Mulai sekarang, setiap paket yang kamu kumpulkan bisa ditinjau dari sini.</p><div class="row"><button class="btn btn-g" id="cx">Tutup</button><button class="btn btn-p" id="lb">Baca teksnya</button></div>`,()=>{$("#cx").onclick=closeOv;$("#lb").onclick=()=>{closeOv();openLib(p.induk||id,0,"progres")}});
   const wrong=p.soal.map((q,i)=>i).filter(i=>h.ans[p.soal[i].no]!==p.soal[i].kunci);
   S.rv={pk:id,ans:h.ans,flag:h.flag||{},q:wrong.length?wrong[0]:0,only:wrong.length>0,tab:null,back:back||"progres"};
   S.view="review";render();
 }
 function vReview(){
-  const R=S.rv,p=PAKET.find(x=>x.paket_id===R.pk);if(!p){S.view="page";S.page="progres";return render()}
+  const R=S.rv,p=findPk(R.pk);if(!p){S.view="page";S.page="progres";return render()}
   const n=p.soal.length,st=q=>{const a=R.ans[q.no];return !a?"sk":a===q.kunci?"ok":"no"};
   const idx=p.soal.map((q,i)=>i).filter(i=>!R.only||st(p.soal[i])!=="ok");
   if(!idx.includes(R.q))R.q=idx[0]??0;
@@ -797,7 +859,7 @@ function vReview(){
     <div class="qz">
       <section class="left" id="left">
         <div class="ttabs"><span class="lb">Teks</span>${p.teks.map((x,i)=>`<button data-tab="${x.id}" aria-pressed="${x.id===t.id}" aria-label="Teks ${i+1}">${i+1}</button>`).join("")}</div>
-        <h2 class="ttl">${esc(t.judul)}</h2>${(()=>{const r=LS.get("rb-ringkas",{})[p.paket_id+"/"+t.id];return r?`<p class="ipk-v"><b>Ide pokokmu:</b> ${esc(r)}</p>`:""})()}
+        <h2 class="ttl">${esc(t.judul)}</h2>${(()=>{const r=LS.get("rb-ringkas",{})[rkey(p,t)];return r?`<p class="ipk-v"><b>Ide pokokmu:</b> ${esc(r)}</p>`:""})()}
         ${teks(t,{hl:t.id===s.teks_id?s.bukti:null,blank:s.format==="blank"?s.no:null})}
       </section>
       <section class="right">
@@ -829,11 +891,11 @@ function vProg(){
   const H=Object.values(getHist());
   const sum=sub=>{const agg={};H.filter(h=>h.sub===sub).forEach(h=>Object.entries(h.by).forEach(([k,v])=>{agg[k]=agg[k]||{b:0,n:0};agg[k].b+=v.b;agg[k].n+=v.n}));return agg};
   const avg=H.length?Math.round(H.reduce((a,h)=>a+h.b/h.n,0)/H.length*100):0;
-  const block=(sub,title)=>{const e=Object.entries(sum(sub));return `<h2 class="h2">${title}</h2>${e.length?`<div class="skills">${e.sort((x,y)=>x[1].b/x[1].n-y[1].b/y[1].n).map(([k,v])=>{const r=Math.round(v.b/v.n*100);return `<div class="sk"><span>${esc(LABELS[k])}</span><div class="meter"><b class="${r<60?"low":""}" style="width:${r}%"></b></div><em>${r}%</em></div>`}).join("")}</div>`:`<p class="empty">Belum ada paket ${title} yang selesai.</p>`}`};
-  main(`<h1 class="h1">Progres</h1><p class="lead">Ringkasan dari paket yang sudah kamu kumpulkan.</p>
-   <div class="big"><div class="tile"><div class="n">${H.length}</div><div class="l">paket selesai</div></div><div class="tile"><div class="n">${H.length?avg+"%":"—"}</div><div class="l">rata-rata benar</div></div><div class="tile"><div class="n">${H.reduce((a,h)=>a+h.n,0)}</div><div class="l">soal dikerjakan</div></div></div>
+  const block=(sub,title)=>{const e=Object.entries(sum(sub));return `<h2 class="h2">${title}</h2>${e.length?`<div class="skills">${e.sort((x,y)=>x[1].b/x[1].n-y[1].b/y[1].n).map(([k,v])=>{const r=Math.round(v.b/v.n*100);return `<div class="sk"><span>${esc(LABELS[k])}</span><div class="meter"><b class="${r<60?"low":""}" style="width:${r}%"></b></div><em>${r}%</em></div>`}).join("")}</div>`:`<p class="empty">Belum ada latihan ${title}.</p>`}`};
+  main(`<h1 class="h1">Progres</h1><p class="lead">Ringkasan dari latihan yang sudah kamu kerjakan.</p>
+   <div class="big"><div class="tile"><div class="n">${H.length}</div><div class="l">latihan selesai</div></div><div class="tile"><div class="n">${H.length?avg+"%":"—"}</div><div class="l">rata-rata benar</div></div><div class="tile"><div class="n">${H.reduce((a,h)=>a+h.n,0)}</div><div class="l">soal dikerjakan</div></div></div>
    ${block("LBIND","Bahasa Indonesia")}${block("LBE","Bahasa Inggris")}
-   <h2 class="h2">Riwayat</h2><p class="hint" style="margin:-6px 0 10px">Ketuk paket untuk meninjau soal yang salah beserta teks dan pembahasannya.</p><div class="hist">${H.length?Object.entries(getHist()).sort((a,b)=>b[1].d-a[1].d).map(([id,h])=>{const sl=h.n-h.b;return `<button class="hrow" data-h="${esc(id)}"><span class="hj">${esc(h.judul)}<small>${new Date(h.d).toLocaleDateString("id-ID",{day:"numeric",month:"short"})} · ${fmt(h.t)}</small></span><span class="hs">${h.b}/${h.n}${sl?`<em>${sl} salah</em>`:`<em class="ok">semua tepat</em>`}</span><span class="chev">›</span></button>`}).join(""):`<p class="empty">Riwayat akan muncul setelah kamu mengumpulkan paket pertama.</p>`}</div>`);
+   <h2 class="h2">Riwayat</h2><p class="hint" style="margin:-6px 0 10px">Ketuk latihan untuk meninjau soal yang salah beserta teks dan pembahasannya.</p><div class="hist">${H.length?Object.entries(getHist()).sort((a,b)=>b[1].d-a[1].d).map(([id,h])=>{const sl=h.n-h.b;return `<button class="hrow" data-h="${esc(id)}"><span class="hj">${esc(h.judul)}<small>${h.pj?esc(h.pj)+" · ":""}${new Date(h.d).toLocaleDateString("id-ID",{day:"numeric",month:"short"})} · ${fmt(h.t)}</small></span><span class="hs">${h.b}/${h.n}${sl?`<em>${sl} salah</em>`:`<em class="ok">semua tepat</em>`}</span><span class="chev">›</span></button>`}).join(""):`<p class="empty">Riwayat akan muncul setelah kamu mengumpulkan paket pertama.</p>`}</div>`);
   $$("[data-h]").forEach(b=>b.onclick=()=>openReview(b.dataset.h,"progres"));
 }
 
@@ -1399,10 +1461,10 @@ function prepPaket(sub,date,over){
 }
 function openPaket(p){S.pk=p.paket_id;sheetPaket(p.paket_id)}
 function dayStatus(sub,date){
-  const k=ymd(date),h=histOn(k,sub),pk=paketOn(k,sub);
-  if(h.length)return {st:"done",label:`Selesai · ${h[0].b}/${h[0].n}`,h:h[0],pk:pk[0]};
-  if(pk.length)return {st:"ready",label:"Siap dibaca",pk:pk[0]};
-  return {st:"todo",label:"Belum disiapkan"};
+  const k=ymd(date),pk=paketOn(k,sub)[0];if(!pk)return {st:"todo",label:"Belum disiapkan"};
+  const R=LS.get("rb-dibaca",{}),nd=pk.teks.filter(t=>R[pk.paket_id+"/"+t.id]).length;
+  if(nd===pk.teks.length)return {st:"done",label:"Sudah dibaca",pk};
+  return {st:"ready",label:nd?`${nd}/${pk.teks.length} teks dibaca`:"Siap dibaca",pk};
 }
 
 /* ----- halaman Jadwal ----- */
@@ -1419,7 +1481,7 @@ function vJadwal(){
     cells+=`<button class="cd ${k===ymd(sel)?"sel":""} ${k===ymd(today)?"now":""}" data-d="${k}" aria-label="${d} ${BULAN[m.getMonth()]}: ${pp.LBIND.tema} dan ${pp.LBE.tema}"><b>${d}</b><i>${esc(pp.LBIND.tema)}</i><span class="dots"><u class="${a?"on id":""}"></u><u class="${b?"on en":""}"></u></span></button>`}
   const st=dayStatus(tab,sel);
   main(`<h1 class="h1">Jadwal</h1>
-   <p class="lead">Setiap hari berisi satu paket Bahasa Indonesia dan satu paket Bahasa Inggris. Temanya berputar setiap 12 hari.</p>
+   <p class="lead">Setiap hari ada bacaan Bahasa Indonesia dan Bahasa Inggris, dengan tema yang berputar setiap 12 hari. Senin, Rabu, dan Jumat adalah hari soal: latih teks yang sudah dibaca di halaman Latihan.</p>
    <div class="jd">
     <section class="cal">
       <div class="cal-h"><button class="ibtn" id="pm" aria-label="Bulan sebelumnya">‹</button><b>${BULAN[m.getMonth()]} ${m.getFullYear()}</b><button class="ibtn" id="nm" aria-label="Bulan berikutnya">›</button></div>
@@ -1431,7 +1493,7 @@ function vJadwal(){
         <h2>${esc(P.LBIND.tema)} <span class="amp">&</span> ${esc(P.LBE.tema)}</h2></div>
       <div class="seg" style="max-width:320px" role="group" aria-label="Subtes"><button data-jt="LBIND" aria-pressed="${tab==="LBIND"}">Indonesia · ${esc(P.LBIND.tema)}</button><button data-jt="LBE" aria-pressed="${tab==="LBE"}">Inggris · ${esc(P.LBE.tema)}</button></div>
       ${slotList(tab,P[tab])}
-      <div class="row" style="justify-content:flex-start;align-items:center">${st.pk?`<button class="btn btn-p" id="op">${st.st==="done"?"Ulangi paket":"Mulai membaca"}</button>`:`<button class="btn btn-p" id="prep">Siapkan paket ini</button>`}<span class="hint" style="margin:0">${st.label}</span></div>
+      <div class="row" style="justify-content:flex-start;align-items:center">${st.pk?`<button class="btn btn-p" id="op">${st.st==="done"?"Baca lagi":"Mulai membaca"}</button>`:`<button class="btn btn-p" id="prep">Siapkan paket ini</button>`}<span class="hint" style="margin:0">${st.label}</span></div>
     </section>
    </div>`);
   $$("[data-d]").forEach(b=>b.onclick=()=>{S.cal=b.dataset.d+"T00:00:00";vJadwal()});
@@ -1501,20 +1563,21 @@ function vHome(){
       <div class="t-top"><span class="t-sub">${isID?"Bahasa Indonesia":"Bahasa Inggris"}</span><span class="t-st ${st.st}">${st.label}</span></div>
       <h3>${esc(p.tema)}</h3>
       <ul class="t-list">${p.slots.slice(0,isID?4:4).map(s=>`<li><b>${s.id}</b>${esc(s.topik)}</li>`).join("")}</ul>
-      <button class="btn t-btn" data-act="${sub}">${st.pk?(st.st==="done"?"Ulangi":"Mulai membaca"):"Siapkan paket"}</button>
+      <button class="btn t-btn" data-act="${sub}">${st.pk?(st.st==="done"?"Baca lagi":"Mulai membaca"):"Siapkan paket"}</button>
     </article>`};
   main(`<div class="home">
     <header class="hh"><div><span class="smallc">${HARI[now.getDay()]}, ${now.getDate()} ${BULAN[now.getMonth()]} ${now.getFullYear()}</span><h1 class="h1">${salam}, Faiq</h1></div>
       <a class="btn btn-g" href="#jadwal">Lihat jadwal</a></header>
     ${resumeHTML()}
-    <h2 class="h2">Literasi hari ini <span class="smallc" style="margin-left:6px">${soalDay?"Hari soal":"Hari baca"}</span></h2>
+    ${soalDay?(()=>{const n=latihSiap().length;return `<div class="resume lt-ban"><div class="rs-t"><span class="smallc">Hari soal</span><b>${n?`${n} teks siap dilatih`:"Belum ada teks yang siap dilatih"}</b><span>${n?"Satu teks, beberapa soal, tanpa timer.":"Teks yang dibaca hari ini bisa dilatih mulai besok."}</span></div>${n?`<a class="btn btn-p" href="#latihan">Mulai latihan</a>`:""}</div>`})():""}
+    <h2 class="h2">Bacaan hari ini <span class="smallc" style="margin-left:6px">${soalDay?"Hari soal":"Hari baca"}</span></h2>
     <div class="todays">${card("LBIND")}${card("LBE")}</div>
     <div class="hgrid">
       <section class="tile2 wkt"><span class="smallc">Pekan ini</span>
         <div class="wk">${week.map(d=>{const k=ymd(d),a=histOn(k,"LBIND").length,b=histOn(k,"LBE").length,isT=k===ymd(now);return `<div class="wkd ${isT?"t":""}"><span>${HARI[d.getDay()].slice(0,3)}</span><div class="ring ${a&&b?"full":a||b||readOn(k)?"half":""}">${d.getDate()}</div></div>`}).join("")}</div>
       </section>
-      <section class="tile2 num"><span class="smallc">Hari membaca beruntun</span><b>${streak()}</b><span class="hint" style="margin:0">${weekH.length} paket dikumpulkan pekan ini</span></section>
-      <section class="tile2"><span class="smallc">Fokus latihan</span><p class="focus2">${weak?`<b>${esc(LABELS[weak[0]]||weak[0])}</b> · ${Math.round(weak[1].b/weak[1].n*100)}% benar dari ${weak[1].n} soal`:"Fokusmu akan muncul setelah beberapa paket selesai."}</p><a class="link2" href="#progres" style="margin:0">Buka progres →</a></section>
+      <section class="tile2 num"><span class="smallc">Hari membaca beruntun</span><b>${streak()}</b><span class="hint" style="margin:0">${weekH.length} latihan selesai pekan ini</span></section>
+      <section class="tile2"><span class="smallc">Fokus latihan</span><p class="focus2">${weak?`<b>${esc(LABELS[weak[0]]||weak[0])}</b> · ${Math.round(weak[1].b/weak[1].n*100)}% benar dari ${weak[1].n} soal`:"Fokusmu akan muncul setelah beberapa latihan selesai."}</p><a class="link2" href="#progres" style="margin:0">Buka progres →</a></section>
     </div>
   </div>`);
   const rs=$("#rs");if(rs)rs.onclick=()=>resumeSesi(getSesi());
@@ -1538,12 +1601,12 @@ function saveSesi(){
 }
 function clearSesi(){SESI=null;LS.set("rb-sesi",null);pushSesi(null)}
 function resumeSesi(o){
-  if(!o||!PAKET.find(p=>p.paket_id===o.pk)){clearSesi();return render()}
+  if(!o||!findPk(o.pk)){clearSesi();return render()}
   Object.assign(S,{pk:o.pk,r:o.r||0,q:o.q||0,ans:o.ans||{},flag:o.flag||{},el:o.el||0,mode:o.mode||S.mode,open:{},tab:null,saved:false,view:o.view==="quiz"?"quiz":"read",t0:Date.now()});
   render();
 }
 function resumeHTML(){
-  const o=getSesi();if(!o||!o.pk||!PAKET.find(p=>p.paket_id===o.pk))return "";
+  const o=getSesi();if(!o||!o.pk||!findPk(o.pk))return "";
   const done=Object.keys(o.ans||{}).length;
   return `<div class="resume"><div class="rs-t"><span class="smallc">Belum selesai</span><b>${esc(o.judul||o.pk)}</b><span>${o.view==="quiz"?`Soal ${o.q+1} dari ${o.n} · ${done} dijawab`:`Membaca teks ${o.r+1} dari ${o.nt}`} · ${fmt(o.el||0)}</span></div><div class="row"><button class="btn btn-g" id="rsx">Buang</button><button class="btn btn-p" id="rs">Lanjutkan</button></div></div>`;
 }
@@ -1584,7 +1647,7 @@ let AUTO_DONE=false;
 const todayKey=()=>ymd(new Date());
 const paketTgl=p=>p.tanggal||(p.dibuat?ymd(new Date(p.dibuat)):"");
 const savedPaket=()=>PAKET.filter(p=>p._src==="db"||p._src==="local");
-const oldDone=()=>{const H=getHist(),t=todayKey();return savedPaket().filter(p=>H[p.paket_id]&&paketTgl(p)<t)};
+const oldDone=()=>{const H=getHist(),t=todayKey();return savedPaket().filter(p=>(H[p.paket_id]||[...new Set(p.soal.map(q=>q.teks_id))].every(id=>H[p.paket_id+VSEP+id]))&&paketTgl(p)<t)};
 const kb=n=>n<1024?n+" B":n<1048576?(n/1024).toFixed(0)+" KB":(n/1048576).toFixed(1)+" MB";
 async function cleanOld(){const L=oldDone();for(const p of L){await deletePaket(p)}refreshPaket();return L.length}
 async function autoClean(){if(!LS.get("rb-auto",false))return;const n=await cleanOld();if(n&&S.view==="page")render()}
