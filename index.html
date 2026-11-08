@@ -413,6 +413,7 @@ a.btn{text-decoration:none;display:inline-block;color:inherit}a.btn-p{color:var(
 .ipk textarea{min-height:70px}
 .ipk-v{font-size:13px;color:var(--muted);margin:-4px 0 14px;padding:8px 12px;border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 10px 10px 0}
 .ipk-v b{color:var(--ink)}
+@media (max-width:600px){.shelf{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 14px}}
 /* hari baca (kartu Beranda) */
 .t-note{font-size:13px;line-height:1.45;margin:0;opacity:.9;position:relative;z-index:1}
 .t-rd{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:13px;position:relative;z-index:1}
@@ -548,10 +549,10 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const pk=()=>PAKET.find(p=>p.paket_id===S.pk);
 const fmt=s=>String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");
 let tick=null;
-const PAGES=[["beranda","Beranda",I.home],["jadwal","Jadwal",I.cal],["indonesia","Bahasa Indonesia",I.id],["inggris","Bahasa Inggris",I.en],["pustaka","Perpustakaan",I.lib],["progres","Progres",I.pr],["tambah","Tambah paket",I.add]];
+const PAGES=[["beranda","Beranda",I.home],["jadwal","Jadwal",I.cal],["pustaka","Perpustakaan",I.lib],["progres","Progres",I.pr],["tambah","Tambah paket",I.add]];
 
 function navHTML(tb){return PAGES.filter(p=>!(tb&&p[0]==="tambah")).map(([k,l,ic])=>`<a href="#${k}" aria-current="${S.view==="page"&&S.page===k?"page":"false"}">${ic}<span>${tb&&l.startsWith("Bahasa ")?l.slice(7):tb&&k==="pustaka"?"Pustaka":l}</span></a>`).join("")}
-function route(){const h=location.hash.replace("#","");if(PAGES.some(p=>p[0]===h)){S.page=h;S.view="page"}render()}
+function route(){let h=location.hash.replace("#","");if(h==="indonesia"||h==="inggris"){S.libsub=h==="indonesia"?"LBIND":"LBE";h="pustaka"}if(PAGES.some(p=>p[0]===h)){S.page=h;S.view="page"}render()}
 window.addEventListener("hashchange",route);
 
 function render(){
@@ -559,22 +560,10 @@ function render(){
   $("#frame").classList.toggle("full",S.view!=="page");
   $("#main").style.padding=["read","quiz","lib","review"].includes(S.view)?"0":"";
   $("#nav").innerHTML=navHTML();$("#tabbar").innerHTML=navHTML(true);
-  ({page:()=>({indonesia:()=>vShelf("LBIND"),inggris:()=>vShelf("LBE"),progres:vProg,pustaka:vLibList,tambah:vAdd,jadwal:vJadwal,beranda:vHome,siapkan:vPrep})[S.page](),read:vRead,quiz:vQuiz,result:vResult,lib:vLib,review:vReview})[S.view]();
+  ({page:()=>({progres:vProg,pustaka:vLibList,tambah:vAdd,jadwal:vJadwal,beranda:vHome,siapkan:vPrep})[S.page](),read:vRead,quiz:vQuiz,result:vResult,lib:vLib,review:vReview})[S.view]();
 }
 const main=h=>{$("#main").innerHTML=h;$("#main").scrollTop=0};
 
-/* ===== RAK ===== */
-function vShelf(sub){
-  const list=PAKET.filter(p=>p.subtes===sub),H=getHist();
-  const isID=sub==="LBIND";
-  main(`<h1 class="h1">${isID?"Bahasa Indonesia":"Bahasa Inggris"}</h1>
-   <p class="lead">${isID?"5 teks · 25 soal per paket":"3 teks + teks rumpang · 20 soal per paket"}</p>
-   <div class="shelf">
-    ${list.map(p=>{const h=H[p.paket_id];return `<button class="pk" data-pk="${p.paket_id}"><div class="cover" style="--c:${p.warna}"><small>${p.paket_id}</small><b>${esc(p.judul_paket)}</b></div><div><div class="pk-t">${esc(p.judul_paket)}</div><div class="pk-s">${p.soal.length} soal${h?` · ${Math.round(h.b/h.n*100)}% benar`:""}</div></div></button>`}).join("")}
-    ${[1,2,3].map(i=>`<div class="pk ghost"><div class="cover"><small>Paket 0${i}</small><b style="font-size:15px">Segera</b></div><div><div class="pk-t" style="color:var(--muted)">Paket 0${i}</div><div class="pk-s">menunggu soal</div></div></div>`).join("")}
-   </div>`);
-  $$("[data-pk]").forEach(b=>b.onclick=()=>sheetPaket(b.dataset.pk));
-}
 function overlay(h,bind){$("#ov").innerHTML=`<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true">${h}</div></div>`;$("#scrim").onclick=e=>{if(e.target.id==="scrim")closeOv()};bind&&bind()}
 function closeOv(){$("#ov").innerHTML=""}
 function sheetEdit(p){
@@ -744,7 +733,7 @@ function vResult(){
    <div>${p.soal.map((s,i)=>{const a=S.ans[s.no],st=!a?"sk":a===s.kunci?"ok":"no";return `<div class="rv"><button class="rv-h" data-o="${s.no}"><span class="n">${i+1}</span><span class="t">${esc(s.stem)}</span><span class="tag ${st}">${st==="ok"?"Tepat":st==="no"?"Keliru":"Kosong"}</span></button>${S.open[s.no]?`<div class="rv-b">${note(s,a||"-")}</div>`:""}</div>`}).join("")}</div>
    <div class="row" style="margin-top:22px;justify-content:flex-start"><button class="btn btn-p" id="hm">Selesai</button>${b<n?`<button class="btn btn-g" id="tj">Tinjau yang salah</button>`:""}<button class="btn btn-g" id="ag">Ulangi</button></div>`);
   const tj=$("#tj");if(tj)tj.onclick=()=>openReview(p.paket_id,"result");
-  const home=()=>{S.view="page";S.page=p.subtes==="LBIND"?"indonesia":"inggris";render()};
+  const home=()=>{S.view="page";S.page="pustaka";S.libsub=p.subtes;render()};
   $("#bk").onclick=home;$("#hm").onclick=home;
   $("#ag").onclick=()=>{Object.assign(S,{r:0,q:0,ans:{},flag:{},open:{},el:0,saved:false,view:"read"});render()};
   $$("[data-o]").forEach(x=>x.onclick=()=>{S.open[x.dataset.o]=!S.open[x.dataset.o];const st=$("#main").scrollTop;vResult();$("#main").scrollTop=st});
@@ -752,14 +741,15 @@ function vResult(){
 
 /* ===== PERPUSTAKAAN (baca saja) ===== */
 function vLibList(){
-  const sub=S.libsub||"LBIND",R=LS.get("rb-dibaca",{});
+  const sub=S.libsub||"LBIND",R=LS.get("rb-dibaca",{}),H=getHist();
   const list=PAKET.filter(p=>p.subtes===sub&&p._src!=="contoh").concat(PAKET.filter(p=>p.subtes===sub&&p._src==="contoh"));
-  const nw=t=>{const all=[];const walk=(v,k)=>{if(k==="judul"||k==="id"||k==="slot"||k==="jenis")return;if(typeof v==="string")all.push(v);else if(Array.isArray(v))v.forEach(x=>walk(x));else if(v&&typeof v==="object")Object.entries(v).forEach(([kk,x])=>walk(x,kk))};walk(t);return all.join(" ").replace(/\{\{\d+\}\}/g,"").split(/\s+/).filter(Boolean).length};
-  main(`<h1 class="h1">Perpustakaan</h1><p class="lead">Semua teks dari paketmu, untuk dibaca ulang tanpa latihan soal.</p>
+  main(`<h1 class="h1">Perpustakaan</h1><p class="lead">Semua paketmu. Ketuk sampul untuk membaca saja, mengerjakan soal, atau mengedit paket.</p>
    <div class="seg libseg" role="group" aria-label="Bahasa"><button data-ls="LBIND" aria-pressed="${sub==="LBIND"}">Bahasa Indonesia</button><button data-ls="LBE" aria-pressed="${sub==="LBE"}">Bahasa Inggris</button></div>
-   ${list.length?list.map(p=>`<div class="libpk"><h3><i style="--c:${p.warna||"#888"}"></i>${esc(p.judul_paket)}</h3>${p.teks.map((t,i)=>{const rd=R[p.paket_id+"/"+t.id];return `<button class="librow" data-lp="${esc(p.paket_id)}" data-lr="${i}"><span class="lt">${esc(t.judul)}</span><span class="lm">${rd?"<b>✓ dibaca</b> · ":""}${nw(t)} kata</span></button>`}).join("")}</div>`).join(""):`<p class="empty">Belum ada teks. Tambahkan paket dulu.</p>`}`);
+   ${list.length?`<div class="shelf">${list.map(p=>{const h=H[p.paket_id],nd=p.teks.filter(t=>R[p.paket_id+"/"+t.id]).length;
+     return `<button class="pk" data-pk="${esc(p.paket_id)}"><div class="cover" style="--c:${p.warna||"#888"}"><small>${esc(p.paket_id)}</small><b>${esc(p.judul_paket)}</b></div><div><div class="pk-t">${esc(p.judul_paket)}</div><div class="pk-s">${nd?`${nd}/${p.teks.length} teks dibaca`:`${p.teks.length} teks`}${h?` · ${Math.round(h.b/h.n*100)}% benar`:""}</div></div></button>`}).join("")}</div>`
+   :`<p class="empty">Belum ada paket. Tambahkan paket dulu.</p>`}`);
   $$("[data-ls]").forEach(b=>b.onclick=()=>{S.libsub=b.dataset.ls;vLibList()});
-  $$("[data-lp]").forEach(b=>b.onclick=()=>openLib(b.dataset.lp,+b.dataset.lr,"pustaka"));
+  $$("[data-pk]").forEach(b=>b.onclick=()=>sheetPaket(b.dataset.pk));
 }
 function openLib(id,r,back){S.lib={pk:id,r:r||0,back:back||"pustaka"};S.view="lib";render()}
 function vLib(){
