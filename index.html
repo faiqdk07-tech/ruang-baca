@@ -223,6 +223,15 @@ html.just .prose .para,html.just .prose p{text-align:justify;-webkit-hyphens:aut
 
 
 /* tambah paket */
+.pkb{display:grid;gap:4px;padding:16px;border-radius:18px;margin:0 0 18px;max-width:560px;background:rgba(120,120,128,.05);box-shadow:inset 4px 0 0 var(--pk),inset 0 0 0 1px var(--line)}
+.pkb.LBIND{--pk:#6E8B74}.pkb.LBE{--pk:#6F7F9C}
+.pkb .seg{margin-bottom:10px}.pkb .fld{margin:0 0 8px;max-width:none}
+.pkb-f{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;font-size:12.5px;color:var(--muted)}
+details.slot>summary{list-style:none;cursor:pointer;align-items:center}details.slot>summary::-webkit-details-marker{display:none}
+details.slot:not([open]){gap:0}details.slot[open]>summary{padding-bottom:4px}
+.slot-nm{display:grid;gap:2px;min-width:0;color:var(--ink) !important;font-weight:600}.slot-nm i{font-style:normal;font-weight:400;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+details.slot>summary .st::after{content:" ▾";color:var(--muted)}details.slot[open]>summary .st::after{content:" ▴"}
+.slot-id{display:inline-grid;place-items:center;min-width:26px;height:22px;padding:0 6px;border-radius:7px;background:var(--ink);color:var(--paper);font-size:11.5px !important}
 .warn{background:var(--accent-soft);color:var(--ink);padding:10px 14px;border-radius:12px;font-size:13px;margin:0 0 18px}
 .fld{display:grid;gap:6px;margin:0 0 18px;max-width:420px}.fld span{font-size:12px;color:var(--muted);font-weight:600}
 input,textarea{font:inherit;color:var(--ink);background:rgba(120,120,128,.08);border:1px solid transparent;border-radius:12px;padding:10px 12px;width:100%}
@@ -1011,6 +1020,12 @@ const SLOTS={
 let DRAFT=null;
 const draft=()=>DRAFT||(DRAFT=LS.get("rb-draft",{sub:"LBIND",judul:"",slots:{}}));
 const setDraft=d=>{DRAFT=d;LS.set("rb-draft",d)};
+/* nama & tanggal paket disimpan per subtes supaya draf BIndo dan BIng tidak tertukar */
+function switchSub(d,sub){if(d.sub===sub)return d;d.info=d.info||{};d.info[d.sub]={judul:d.judul,tanggal:d.tanggal};
+  const n=d.info[sub]||{};d.sub=sub;d.judul=n.judul||"";if(n.tanggal)d.tanggal=n.tanggal;else delete d.tanggal;return d}
+function clearSub(d,sub){Object.keys(d.slots).forEach(k=>{if(k.startsWith(sub))delete d.slots[k]});
+  Object.keys(GEN.parts).forEach(k=>{if(k.startsWith(sub))delete GEN.parts[k]});
+  if(d.sub===sub){d.judul="";delete d.tanggal}if(d.info)delete d.info[sub];GEN.status={};GEN.result=null;return d}
 
 const isSub=p=>/^##\s/.test(String(p));
 const wc=t=>String(t||"").split(/\s+/).filter(Boolean).length;
@@ -1289,33 +1304,39 @@ async function pdfToText(file){
 
 const PDF_IC='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13M6.5 9h4M6.5 11.5h4"/></svg>';
 function slotHTML(sl,v,can,stt){
-  const head=`<div class="slot-h"><b>${sl.id}</b><span>${esc(sl.slot)}</span><em class="st ${stt.split(" ")[0]}">${esc(stLabel(stt))}</em></div>
-     ${v.topik?`<div class="slot-tp">${esc(v.topik)}</div>`:""}`;
-  if(PROMPT_ONLY[sl.id])return `<section class="slot">${head}
+  const d=draft(),done=!!GEN.parts[d.sub+sl.id],nw=wc(v.txt);
+  const info=stt?stLabel(stt):done?"✓ soal siap":PROMPT_ONLY[sl.id]?"ditulis Claude":nw?nw+" kata":"belum diisi";
+  const cls=stt?stt.split(" ")[0]:done?"ok":"";
+  const open=GEN.open===sl.id?" open":"";
+  const head=`<summary class="slot-h"><b class="slot-id">${sl.id}</b><span class="slot-nm">${esc(sl.slot)}${v.topik?`<i>${esc(v.topik)}</i>`:""}</span><em class="st ${cls}">${esc(info)}</em></summary>`;
+  if(PROMPT_ONLY[sl.id])return `<details class="slot" data-sl="${sl.id}"${open}>${head}
      <p class="hint" style="margin:0">${sl.id==="B"?"Text 1, Text 2,":sl.id==="A"?"Utas forum":"Puisi atau prosa"} dan soalnya ditulis Claude sesuai topik. Tidak perlu mencari artikel.</p>
-     ${can?"":manualHTML(sl,"")}</section>`;
+     ${can?"":manualHTML(sl,"")}</details>`;
   const n=wc(v.txt);
-  return `<section class="slot">${head}
+  return `<details class="slot" data-sl="${sl.id}"${open}>${head}
      <div class="stp"><span class="sn">1</span><div class="sb"><b>Artikel</b>
        <div class="pdfr"><label class="pdfb"><input type="file" accept="application/pdf,.pdf,image/*" multiple data-pdf="txt" data-k="${sl.id}">${PDF_IC}PDF / Screenshot</label><span class="pdfm" data-pm="txt${sl.id}">${n?n+" kata":""}</span></div>
        <details class="tx" data-tx="${sl.id}"><summary data-sum="${sl.id}">${n?"Lihat atau ubah teks":"Atau tempel teks manual"}</summary><div class="pdfr txa"><button type="button" class="pdfb" data-pst="${sl.id}">Tempel (ganti isi)</button><button type="button" class="pdfb" data-clr="${sl.id}">Hapus teks</button></div><textarea data-f="txt" data-k="${sl.id}" placeholder="Tempel artikel utuh di sini">${esc(v.txt||"")}</textarea>
          <input class="src1" data-f="sumber" data-k="${sl.id}" value="${esc(v.sumber||"")}" placeholder="Sumber (nama media)"></details>
      </div></div>
      <div class="stp"><span class="sn">2</span><div class="sb"><b>Rapikan</b> <span class="hint" style="margin:0">opsional, kalau teksnya berantakan</span>
-       <div class="pdfr">${rpBtn("txt",sl)}${can?"":`<button type="button" class="pdfb" data-pst="${sl.id}">Tempel hasil rapikan</button>`}</div>${can?"":`<span class="hint" style="margin:0">Salin jawaban Claude, lalu tekan Tempel hasil rapikan: isi kotak teks langsung diganti.</span>`}</div></div>
+       <div class="pdfr">${rpBtn("txt",sl)}${can?"":`<button type="button" class="pdfb" data-pst="${sl.id}">Tempel hasil rapikan</button>`}</div></div></div>
      ${can?"":`<div class="stp"><span class="sn">3</span><div class="sb"><b>Buat soal</b>${manualHTML(sl,"x")}</div></div>`}
-     ${n?"":`<p class="hint" style="margin:0">Tidak menemukan artikel? Lewati langkah 1–2, Claude akan menulis teksnya.</p>`}
-   </section>`;
+   </details>`;
 }
 function vAdd(){
   const d=draft(),slots=SLOTS[d.sub],auto=!!SAMPLE,can=auto&&LS.get("rb-addmode","auto")==="auto";
   const st=k=>GEN.status[k]||"";
+  const SUBN={LBIND:"Bahasa Indonesia",LBE:"Bahasa Inggris"};
+  const filled=slots.filter(sl=>{const v=d.slots[d.sub+sl.id]||{};return GEN.parts[d.sub+sl.id]||wc(v.txt)||PROMPT_ONLY[sl.id]&&v.topik}).length;
+  const tg=d.tanggal?(()=>{const t=new Date(d.tanggal+"T00:00");return t.getDate()+" "+BULAN[t.getMonth()]})():"";
   main(`<h1 class="h1">Tambah paket</h1>
-   <p class="lead">${can?"Masukkan artikel di slotnya, lalu tekan Buat soal.":"Untuk setiap slot: masukkan artikel, salin prompt ke chat Claude baru, lalu tempel jawaban JSON-nya di slot itu."} Slot tanpa artikel ditulis Claude sesuai topiknya.</p>
-   ${auto?`<div class="fld" style="max-width:420px;margin-bottom:12px"><span>Cara membuat soal</span><div class="seg" style="margin:0" role="group" aria-label="Cara membuat soal"><button data-am="auto" aria-pressed="${can}">Otomatis di sini</button><button data-am="chat" aria-pressed="${!can}">Salin prompt ke chat</button></div></div>`:""}
-   <div class="seg" style="max-width:320px" role="group" aria-label="Subtes"><button data-sub="LBIND" aria-pressed="${d.sub==="LBIND"}">Bahasa Indonesia</button><button data-sub="LBE" aria-pressed="${d.sub==="LBE"}">Bahasa Inggris</button></div>
-   <label class="fld"><span>Nama paket</span><input id="judul" value="${esc(d.judul)}" placeholder="mis. Paket 01"></label>
-   ${siteChips(d.sub)}
+   <section class="pkb ${d.sub}">
+     <div class="seg" role="group" aria-label="Subtes"><button data-sub="LBIND" aria-pressed="${d.sub==="LBIND"}">Bahasa Indonesia</button><button data-sub="LBE" aria-pressed="${d.sub==="LBE"}">Bahasa Inggris</button></div>
+     <label class="fld"><span>Nama paket</span><input id="judul" value="${esc(d.judul)}" placeholder="mis. Paket 01"></label>
+     <div class="pkb-f"><span>${SUBN[d.sub]}${tg?" · untuk "+tg:""} · ${filled}/${slots.length} slot terisi</span><button type="button" class="pdfb" id="reset">Kosongkan, mulai paket baru</button></div>
+   </section>
+   <p class="lead">${can?"Isi artikel di tiap slot, lalu tekan Buat soal.":"Tiap slot: isi artikel, salin prompt ke chat Claude, tempel jawabannya."} Slot tanpa artikel ditulis Claude.</p>
    <div class="slots">${slots.map(sl=>slotHTML(sl,d.slots[d.sub+sl.id]||{},can,st(sl.id))).join("")}</div>
    <div class="row" style="justify-content:flex-start;margin:18px 0 8px;${can?"":"display:none"}">
      <button class="btn btn-p" id="gen" ${!can||GEN.running?"disabled":""}>${GEN.running?"Sedang membuat…":"Buat soal"}</button>
@@ -1323,10 +1344,17 @@ function vAdd(){
    </div>
    <p class="hint">${can?"Setiap slot dibuat terpisah, biasanya 1–3 menit per slot. Pemakaian dihitung dari akun Claude-mu.":"Tip: tempel prompt setiap slot di chat Claude yang terpisah supaya jawabannya tidak terpotong."}</p>
    ${GEN.result?previewHTML(GEN.result):""}
-   <details class="ck" style="margin-top:28px"><summary>Impor paket JSON utuh</summary>
+   <details class="ck" style="margin-top:28px"><summary>Pengaturan lain</summary>
+   ${auto?`<div class="fld" style="margin:10px 0 12px"><span>Cara membuat soal</span><div class="seg" style="margin:0" role="group" aria-label="Cara membuat soal"><button data-am="auto" aria-pressed="${can}">Otomatis di sini</button><button data-am="chat" aria-pressed="${!can}">Salin prompt ke chat</button></div></div>`:""}
+   <div style="margin-top:10px">${siteChips(d.sub)}</div>
+   <span class="smallc">Impor paket JSON utuh</span>
    <textarea id="imp" class="imp" style="margin-top:8px" placeholder='{"paket_id":"LBIND-001", …}'></textarea>
    <div class="row" style="justify-content:flex-start;margin-top:10px"><button class="btn btn-g" id="impb">Simpan JSON ke rak</button><span id="impm" class="hint"></span></div></details>`);
-  $$("[data-sub]").forEach(b=>b.onclick=()=>{const x=draft();x.sub=b.dataset.sub;setDraft(x);GEN.status={};GEN.result=null;vAdd()});
+  $$("[data-sub]").forEach(b=>b.onclick=()=>{const x=switchSub(draft(),b.dataset.sub);setDraft(x);GEN.status={};GEN.result=null;vAdd()});
+  $$("details.slot").forEach(el=>el.ontoggle=()=>{if(el.open){GEN.open=el.dataset.sl;$$("details.slot").forEach(o=>{if(o!==el)o.open=false})}else if(GEN.open===el.dataset.sl)GEN.open=null});
+  const rs=$("#reset");rs.onclick=()=>{if(GEN.running)return;
+    if(!rs.dataset.sure){rs.dataset.sure="1";rs.textContent="Yakin? Semua isi slot dihapus";setTimeout(()=>{if(rs.isConnected){rs.dataset.sure="";rs.textContent="Kosongkan, mulai paket baru"}},3000);return}
+    setDraft(clearSub(draft(),draft().sub));vAdd()};
   $("#judul").oninput=e=>{const x=draft();x.judul=e.target.value;setDraft(x)};
   $$("[data-am]").forEach(b=>b.onclick=()=>{LS.set("rb-addmode",b.dataset.am);vAdd()});
   $$("[data-f]").forEach(el=>el.oninput=()=>{const x=draft(),key=x.sub+el.dataset.k;x.slots[key]=x.slots[key]||{};x.slots[key][el.dataset.f]=el.value;setDraft(x)});
@@ -1396,7 +1424,7 @@ async function runGen(){
   vAdd();
 }
 function stLabel(s){const i=s.indexOf(" ");return i>0&&["ok","gagal","proses"].includes(s.slice(0,i))?s.slice(i+1):s}
-function paintStatus(){$$(".slot").forEach((el,i)=>{const sl=SLOTS[draft().sub][i],em=el.querySelector(".st");if(em&&sl){const s=GEN.status[sl.id]||"";em.textContent=stLabel(s);em.className="st "+s.split(" ")[0]}})}
+function paintStatus(){$$(".slot").forEach((el,i)=>{const sl=SLOTS[draft().sub][i],em=el.querySelector(".st");if(em&&sl){const s=GEN.status[sl.id]||"";if(!s)return;em.textContent=stLabel(s);em.className="st "+s.split(" ")[0]}})}
 function previewHTML(p){
   const qw=cekKualitas(p);
   return `<div class="prev"><h2 class="h2">Hasil: ${esc(p.judul_paket)}</h2>${qw.length?`<p class="warn">${qw.map(esc).join("<br>")}</p>`:""}
@@ -1479,8 +1507,9 @@ const histOn=(key,sub)=>Object.values(getHist()).filter(h=>h.d&&ymd(new Date(h.d
 const readOn=k=>Object.values(LS.get("rb-dibaca",{})).some(t=>ymd(new Date(t))===k);
 const paketOn=(key,sub)=>PAKET.filter(p=>p.tanggal===key&&p.subtes===sub);
 function prepPaket(sub,date,over){
-  const P=planFor(date)[sub],d=draft();
-  d.sub=sub;d.judul=`${P.tema} · ${date.getDate()} ${BULAN[date.getMonth()]}`;d.tanggal=ymd(date);
+  const P=planFor(date)[sub],d=switchSub(draft(),sub);
+  if(d.tanggal!==ymd(date))clearSub(d,sub);
+  d.judul=`${P.tema} · ${date.getDate()} ${BULAN[date.getMonth()]}`;d.tanggal=ymd(date);
   P.slots.forEach(s=>{const k=sub+s.id;d.slots[k]=d.slots[k]||{};d.slots[k].topik=(over&&over[s.id])||s.topik});
   setDraft(d);GEN.status={};GEN.result=null;location.hash="#tambah";
 }
