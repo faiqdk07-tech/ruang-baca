@@ -1707,6 +1707,14 @@ const savedPaket=()=>PAKET.filter(p=>p._src==="db"||p._src==="local");
 const oldDone=()=>{const H=getHist(),t=todayKey();return savedPaket().filter(p=>(H[p.paket_id]||[...new Set(p.soal.map(q=>q.teks_id))].every(id=>H[p.paket_id+VSEP+id]))&&paketTgl(p)<t)};
 const kb=n=>n<1024?n+" B":n<1048576?(n/1024).toFixed(0)+" KB":(n/1048576).toFixed(1)+" MB";
 async function cleanOld(){const L=oldDone();for(const p of L){await deletePaket(p)}refreshPaket();return L.length}
+/* reset keseluruhan: hapus semua data app di browser ini (dan di db bila ada), lalu muat ulang */
+async function resetAll(withPaket){
+  clearTimeout(sesiT);
+  if(withPaket){for(const p of savedPaket()){await deletePaket(p)}}
+  if(DB&&UID){await Promise.all([DB.doc("data/users/"+UID+"/progres").set({hist:{}}),DB.doc("data/users/"+UID+"/sesi").set({kosong:true,t:Date.now()})].map(x=>x.catch(()=>{})))}
+  try{Object.keys(localStorage).filter(k=>(k.startsWith("rb-")&&!(k==="rb-paket"&&!withPaket))||k==="hubfab.pos").forEach(k=>localStorage.removeItem(k))}catch(e){}
+  location.hash="#beranda";location.reload();
+}
 async function autoClean(){if(!LS.get("rb-auto",false))return;const n=await cleanOld();if(n&&S.view==="page")render()}
 function storageHTML(){
   const all=savedPaket(),old=oldDone(),size=all.reduce((a,p)=>a+JSON.stringify(p).length,0),auto=LS.get("rb-auto",false);
@@ -1714,10 +1722,12 @@ function storageHTML(){
    <p class="hint" style="margin-top:0">${all.length} paket tersimpan · sekitar ${kb(size)}. Menghapus paket tidak menghapus skor dan riwayatnya di halaman ini.</p>
    <div class="stor-r"><div><b>Paket lama yang sudah selesai</b><span>${old.length?`${old.length} paket dari hari sebelumnya`:"Tidak ada"}</span></div><button class="btn btn-g" id="cl" ${old.length?"":"disabled"} style="color:var(--no)">Hapus paket lama</button></div>
    <div class="stor-r"><div><b>Hapus otomatis setiap hari</b><span>Saat hari berganti, paket dari hari sebelumnya yang sudah selesai dihapus sendiri. Paket yang belum dikerjakan tetap disimpan.</span></div><button class="sw" id="au" role="switch" aria-checked="${auto}"><i></i></button></div>
+   <div class="stor-r"><div><b>Reset keseluruhan</b><span>Kembalikan app seperti baru: skor, riwayat, progres baca, sesi berjalan, draf paket, dan pengaturan dihapus. Paket di rak bisa ikut dihapus atau disimpan.</span></div><button class="btn btn-g" id="rst" style="color:var(--no)">Reset semua</button></div>
   </section>`;
 }
 {const _p=vProg;vProg=function(){_p();$("#main").insertAdjacentHTML("beforeend",storageHTML());
   const cl=$("#cl");if(cl)cl.onclick=()=>{const n=oldDone().length;overlay(`<h3>Hapus ${n} paket lama?</h3><p>Artikel dan soalnya akan hilang dari rak. Skor dan riwayatnya tetap ada di Progres. Kalau mau menyimpan cadangan, unduh JSON-nya dulu dari rak.</p><div class="row"><button class="btn btn-g" id="cx">Batal</button><button class="btn btn-p" id="yes" style="background:var(--no)">Hapus</button></div>`,()=>{$("#cx").onclick=closeOv;$("#yes").onclick=async()=>{$("#yes").disabled=true;await cleanOld();closeOv();vProg()}})};
+  $("#rst").onclick=()=>{const n=savedPaket().length;overlay(`<h3>Reset semua data?</h3><p>Skor, riwayat latihan, progres baca, sesi yang sedang berjalan, draf paket, dan pengaturan tampilan akan dihapus. Ini tidak bisa dibatalkan.</p>${n?`<label style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 14px;font-size:14px"><input type="checkbox" id="rsp" checked style="margin-top:3px"><span>Hapus juga ${n} paket di rak<br><small style="color:var(--muted)">Kalau mau menyimpan cadangan, unduh JSON-nya dulu dari rak.</small></span></label>`:""}<div class="row"><button class="btn btn-g" id="cx">Batal</button><button class="btn btn-p" id="yes" style="background:var(--no)">Reset semua</button></div>`,()=>{$("#cx").onclick=closeOv;const y=$("#yes");y.onclick=async()=>{if(!y.dataset.sure){y.dataset.sure="1";y.textContent="Yakin? Tekan sekali lagi";return}y.disabled=true;y.textContent="Mereset…";const c=$("#rsp");await resetAll(c?c.checked:false)}})};
   $("#au").onclick=()=>{LS.set("rb-auto",!LS.get("rb-auto",false));vProg();if(LS.get("rb-auto",false))autoClean()};
 }}
 
